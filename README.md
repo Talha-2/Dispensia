@@ -136,7 +136,7 @@ Supabase is optional — without credentials the app runs on the Demo tenant wit
    | `202609140001_staff_role_values.sql` | Adds the `owner` and `cashier` roles |
    | `202609140002_tenancy_and_demo_org.sql` | Tenant profile columns, tenant policies, `create_organization()`, and the Demo Pharmacy seed |
 
-4. Set `NEXT_PUBLIC_BACKEND_ENABLED=true`.
+4. Set `BACKEND_ENABLED=true`.
 
 The second file must run on its own: PostgreSQL will not let a migration use an enum value in
 the same transaction that adds it.
@@ -173,8 +173,7 @@ set these environment variables for Production and Preview:
 |---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | the project URL from Supabase → Settings → API |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | the publishable key |
-| `SUPABASE_SERVICE_ROLE_KEY` | the service role key — server only, never expose it |
-| `NEXT_PUBLIC_BACKEND_ENABLED` | `true` |
+| `BACKEND_ENABLED` | `true` — no public prefix; it is read on the server only |
 
 `data/catalogue.json` is committed and traced into the serverless output by
 `outputFileTracingIncludes` in `next.config.ts`, so no build-time ingest step runs on Vercel.

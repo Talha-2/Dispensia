@@ -1405,76 +1405,106 @@ function BoardView({
   }
 
   return (
-    <div className="overflow-x-auto pb-4">
-      <div className="flex gap-0" style={{ minWidth: groups.length * 220 }}>
-        {groups.map(([key, list], index) => (
-          <section
-            key={key}
-            className={`min-w-[220px] flex-1 px-3 ${index > 0 ? "border-l border-(--line-soft)" : "pl-0"}`}
-          >
-            <div className="baseline-strong flex items-center gap-2 pb-1">
-              {GROUP_TONE[key] ? (
-                <span aria-hidden="true" className="h-2 w-2 shrink-0" style={{ background: GROUP_TONE[key] }} />
-              ) : null}
-              <h3 className="t-label flex-1 truncate" style={{ color: "var(--ink)" }}>
-                {GROUP_LABEL[key] ?? key}
-              </h3>
-              <span className="t-data t-num" data-depth="3">
-                {list.length}
-              </span>
-            </div>
+    <div className="flex min-h-0 flex-1 flex-col">
+      {/* Lanes, each scrolling inside itself. The board pages sideways rather
+          than growing the screen downward, which is the whole reason this page
+          is locked to the viewport. */}
+      <div className="min-h-0 flex-1 overflow-x-auto pb-1">
+        <div className="flex h-full gap-3" style={{ minWidth: Math.min(groups.length, 7) * 252 }}>
+          {groups.map(([key, list]) => {
+            const tone = GROUP_TONE[key];
+            const stocked = list.filter((medicine) => medicine.stock).length;
+            return (
+              <section key={key} className="lane h-full w-[244px] shrink-0">
+                <div className="panel-head shrink-0" style={{ padding: "8px 10px" }}>
+                  {tone ? (
+                    <span
+                      aria-hidden="true"
+                      className="h-2.5 w-2.5 shrink-0 rounded-full"
+                      style={{ background: tone }}
+                    />
+                  ) : null}
+                  <h3 className="t-label flex-1 truncate" style={{ color: "var(--ink)" }}>
+                    {GROUP_LABEL[key] ?? key}
+                  </h3>
+                  <span className="cell cell-quiet">{list.length}</span>
+                </div>
 
-            <div className="mt-1">
-              {list.slice(0, 40).map((medicine) => {
-                const live = open === medicine.id;
-                const state = shelfState(medicine);
-                return (
-                  <button
-                    key={medicine.id}
-                    type="button"
-                    onClick={() => onOpen(medicine.id)}
-                    className="baseline row flex w-full items-start gap-2 py-1.5 text-left"
-                    data-live={live}
-                  >
-                    <span className="min-w-0 flex-1">
-                      <span className="t-data block truncate" data-depth={live ? "4" : "3"}>
-                        {medicine.short}
-                        {medicine.strength ? (
-                          <span className="t-num ml-1" data-depth="2">
-                            {medicine.strength}
+                {/* One line under the heading that says what the column is, so
+                    a lane is readable without counting its cards. */}
+                <div className="shrink-0 border-b border-(--line) px-2.5 py-1.5">
+                  <span className="t-xs" data-depth="1">
+                    <span className="t-num" data-depth={stocked ? "2" : "0"}>
+                      {stocked}
+                    </span>{" "}
+                    stocked here
+                  </span>
+                </div>
+
+                <div className="lane-body">
+                  {list.slice(0, 40).map((medicine) => {
+                    const live = open === medicine.id;
+                    const state = shelfState(medicine);
+                    return (
+                      <button
+                        key={medicine.id}
+                        type="button"
+                        onClick={() => onOpen(medicine.id)}
+                        className="tile p-2.5"
+                        data-live={live}
+                      >
+                        <span className="flex items-start gap-1.5">
+                          <span className="t-data min-w-0 flex-1 truncate" data-depth={live ? "4" : "3"}>
+                            {medicine.short}
+                            {medicine.strength ? (
+                              <span className="t-num ml-1" data-depth="2">
+                                {medicine.strength}
+                              </span>
+                            ) : null}
                           </span>
-                        ) : null}
-                      </span>
-                      <span className="t-data block truncate" data-depth="1">
-                        {medicine.molecule}
-                      </span>
-                      <span className="mt-1 flex items-center gap-2">
-                        {medicine.stock && state ? (
-                          <Meter value={medicine.stock.onHand} of={medicine.stock.reorder} tone={state} />
-                        ) : null}
-                        <span className="t-data t-num" data-depth="1">
-                          {medicine.stock ? medicine.stock.onHand : "—"}
+                          <Markers medicine={medicine} />
                         </span>
-                        <span className="t-data t-num ml-auto" data-depth="2">
-                          {pkr(medicine.price, true)}
+
+                        <span className="t-data mt-0.5 block truncate" data-depth="1">
+                          {medicine.molecule} · {medicine.form}
                         </span>
-                      </span>
-                    </span>
-                  </button>
-                );
-              })}
-              {list.length > 40 ? (
-                <p className="t-data py-2" data-depth="0">
-                  + {list.length - 40} more in this column
-                </p>
-              ) : null}
-            </div>
-          </section>
-        ))}
+
+                        <span className="mt-2 flex items-center gap-2">
+                          {medicine.stock && state ? (
+                            <>
+                              <Meter value={medicine.stock.onHand} of={medicine.stock.reorder} tone={state} />
+                              <span className="t-data t-num" data-depth="2">
+                                {medicine.stock.onHand}
+                              </span>
+                            </>
+                          ) : (
+                            <span className="t-xs" data-depth="0">
+                              not stocked
+                            </span>
+                          )}
+                          <span className="t-data t-num ml-auto" data-depth="3">
+                            {pkr(medicine.price, true)}
+                          </span>
+                        </span>
+                      </button>
+                    );
+                  })}
+
+                  {list.length > 40 ? (
+                    <p className="t-xs py-1 text-center" data-depth="0">
+                      + {(list.length - 40).toLocaleString()} more in this column
+                    </p>
+                  ) : null}
+                </div>
+              </section>
+            );
+          })}
+        </div>
       </div>
-      <p className="t-data mt-2" data-depth="0">
-        The board lays out the first 120 results grouped by {groupBy}. Narrow further in the rail, or switch to
-        table for the full set.
+
+      <p className="t-xs shrink-0 pt-2" data-depth="0">
+        The board lays out the first 120 results grouped by {groupBy}. Narrow further in the filter panel, or
+        switch to table for the full set.
       </p>
     </div>
   );

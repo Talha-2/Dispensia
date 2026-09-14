@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { createPortal } from "react-dom";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import {
   ArrowRight,
@@ -165,7 +166,7 @@ function CommandPalette({ onClose, patients }: { onClose: () => void; patients: 
     if (query.length < 2) return;
     const controller = new AbortController();
     const timer = window.setTimeout(() => {
-      fetch(`/api/suggest?q=${encodeURIComponent(query)}&limit=6`, { signal: controller.signal })
+      fetch(`/api/suggest?q=${encodeURIComponent(query)}&limit=8`, { signal: controller.signal })
         .then((response) => response.json())
         .then((data: { items: Medicine[] }) => setFound({ term: query, items: data.items }))
         .catch(() => undefined);
@@ -190,7 +191,7 @@ function CommandPalette({ onClose, patients }: { onClose: () => void; patients: 
           patient.mrn.toLowerCase().includes(lower) ||
           patient.phone.replace(/\s/g, "").includes(lower.replace(/\s/g, "")),
       )
-      .slice(0, 3)
+      .slice(0, 4)
       .map((patient) => ({ kind: "patient" as const, id: patient.id, patient }));
 
     const products =
@@ -198,7 +199,7 @@ function CommandPalette({ onClose, patients }: { onClose: () => void; patients: 
         ? found.items.map((medicine) => ({ kind: "product" as const, id: medicine.id, medicine }))
         : [];
 
-    return [...actions.slice(0, 4), ...people, ...products];
+    return [...actions.slice(0, 5), ...people, ...products];
   }, [lower, query, patients, found]);
 
   const active = Math.min(cursor, Math.max(0, hits.length - 1));
@@ -224,7 +225,16 @@ function CommandPalette({ onClose, patients }: { onClose: () => void; patients: 
     [onClose, router],
   );
 
-  return (
+  // The trigger lives in the header, and the header carries a backdrop-filter.
+  // That makes it the containing block for `position: fixed`, so a scrim
+  // rendered in place was sized to the header — 91px tall — and its own
+  // overflow clipped the palette down to a sliver of its first row. The palette
+  // has to leave the header's subtree entirely to be a full-viewport overlay.
+  // It only ever mounts from a click or Ctrl+K, so there is no server pass to
+  // guard against and no state to hold — document is simply there by then.
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
     <div
       className="scrim no-print"
       role="presentation"
@@ -342,15 +352,30 @@ function CommandPalette({ onClose, patients }: { onClose: () => void; patients: 
           })}
         </ul>
 
+        {/* The footer teaches the palette's own controls first — a reader who
+            has just opened it needs to move and choose before they need a
+            global shortcut. */}
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-(--line) bg-(--surface-sunk) px-4 py-2.5">
-          {SHORTCUTS.slice(0, 4).map((shortcut) => (
+          <span className="t-xs flex items-center gap-1.5" data-depth="1">
+            <span className="kbd">↑↓</span>
+            move
+          </span>
+          <span className="t-xs flex items-center gap-1.5" data-depth="1">
+            <span className="kbd">⏎</span>
+            open
+          </span>
+          {SHORTCUTS.slice(0, 2).map((shortcut) => (
             <span key={shortcut.keys} className="t-xs flex items-center gap-1.5" data-depth="1">
               <span className="kbd">{shortcut.keys}</span>
               {shortcut.what}
             </span>
           ))}
+          <span className="t-xs ml-auto" data-depth="0">
+            {hits.length} {hits.length === 1 ? "result" : "results"}
+          </span>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
