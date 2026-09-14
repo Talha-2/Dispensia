@@ -206,10 +206,10 @@ export default function LoginPage() {
 
       {/* What the workspace is, stated in facts rather than claims. */}
       <div
-        className="border-t border-(--line) px-6 py-12 lg:w-[46%] lg:border-l lg:border-t-0 lg:px-14"
+        className="flex items-center border-t border-(--line) px-6 py-12 lg:w-[46%] lg:border-l lg:border-t-0 lg:px-14"
         style={{ background: "var(--surface)" }}
       >
-        <div className="mx-auto max-w-[460px]">
+        <div className="mx-auto w-full max-w-[460px]">
           <p className="t-label">Main Branch · Lahore</p>
           <h2 className="t-display mt-3">
             The safety engine runs on the whole basket, every time it changes.

@@ -30,8 +30,12 @@ export type HeldLine = {
   state: StockState;
 };
 
-/** A register is read a page at a time; nobody scrolls a statutory ledger. */
-const PAGE = 12;
+/**
+ * A register is read a page at a time; nobody scrolls a statutory ledger. Ten
+ * two-line rows is what clears the fold on a 940px screen once the summary row
+ * and the toolbar have taken their share.
+ */
+const PAGE = 10;
 
 const CLASSES = [
   { id: "all", label: "All entries" },
