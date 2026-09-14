@@ -89,12 +89,38 @@ function Auth() {
           return;
         }
       }
+
+      // A brand new account belongs to no pharmacy yet, and that is the only
+      // thing it can usefully do next — so it goes straight to the choice
+      // rather than landing on a counter that is not theirs.
+      router.push("/onboarding");
+      router.refresh();
+      return;
     } else {
-      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+      const { data: session, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
       if (signInError) {
         setError(signInError.message);
         setBusy(false);
         return;
+      }
+
+      // Somebody who signed up but never finished — no pharmacy yet — is sent
+      // to finish rather than dropped on a counter that belongs to nobody.
+      if (session.user) {
+        const { data: profile } = await supabase
+          .from("staff_profiles")
+          .select("organization_id")
+          .eq("id", session.user.id)
+          .maybeSingle();
+
+        if (!profile?.organization_id) {
+          router.push("/onboarding");
+          router.refresh();
+          return;
+        }
       }
     }
 
@@ -195,7 +221,7 @@ function Auth() {
 
         <p className="t-sm mt-4" data-depth="1">
           {mode === "signup"
-            ? "A new account starts with no branch role. An owner assigns one in Settings before it can clear a clinical finding."
+            ? "Next you will either register your pharmacy or join one with an invitation link. No email confirmation to wait for."
             : "Every dispense, override and register entry is recorded against the person signed in."}
         </p>
       </form>

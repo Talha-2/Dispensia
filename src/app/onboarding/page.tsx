@@ -127,23 +127,52 @@ export default function OnboardingPage() {
         the demo first — nothing you do there touches real data.
       </p>
 
-      <div className="seg mt-6 w-full max-w-[420px]" role="group" aria-label="How to continue">
-        <button
-          type="button"
-          className="flex-1"
-          aria-pressed={path === "create"}
-          onClick={() => setPath("create")}
-        >
-          Create an organisation
-        </button>
-        <button
-          type="button"
-          className="flex-1"
-          aria-pressed={path === "join"}
-          onClick={() => setPath("join")}
-        >
-          Join with a link
-        </button>
+      {/* Two doors, stated at the same weight. Most people arriving here were
+          invited, but the owner setting the pharmacy up for the first time is
+          the one who has nobody to ask — so neither is buried behind the other. */}
+      <div className="mt-6 grid gap-3 sm:grid-cols-2">
+        {[
+          {
+            id: "create" as const,
+            icon: <Building2 size={18} strokeWidth={1.7} />,
+            title: "Register your pharmacy",
+            body: "You are setting this up. Creates the organisation, its first branch, and makes you the owner.",
+          },
+          {
+            id: "join" as const,
+            icon: <LogIn size={18} strokeWidth={1.7} />,
+            title: "Join with an invitation link",
+            body: "Somebody already runs the pharmacy and sent you a link. Paste it and you are in.",
+          },
+        ].map((option) => (
+          <button
+            key={option.id}
+            type="button"
+            onClick={() => setPath(option.id)}
+            // flex-col, because a button centres its content vertically: the
+            // grid stretches both cards to the taller one, and the shorter card's
+            // text would otherwise float half a line below its neighbour's.
+            className="tile flex flex-col items-start p-4"
+            data-live={path === option.id}
+            aria-pressed={path === option.id}
+          >
+            <span
+              className="flex h-9 w-9 items-center justify-center rounded-(--radius-sm)"
+              style={{
+                background: path === option.id ? "var(--primary)" : "var(--primary-soft)",
+                color: path === option.id ? "var(--on-primary)" : "var(--primary)",
+              }}
+            >
+              {option.icon}
+            </span>
+            <span className="t-data mt-3 block font-semibold" style={{ color: "var(--ink)" }}>
+              {option.title}
+            </span>
+            <span className="t-prose mt-1 block" data-depth="1">
+              {option.body}
+            </span>
+          </button>
+        ))}
       </div>
 
       {path === "join" ? (
