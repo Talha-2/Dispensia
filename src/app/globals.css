@@ -1,26 +1,1236 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Dispensia — clinical system
+
+   Hospital-grade software, built modern rather than beige. A cool near-white
+   ground, white surfaces that lift off it with real layered shadow, one
+   confident blue that carries every interaction, and saturated clinical
+   semantics reserved entirely for WHO AWaRe classes and safety severity — so
+   nothing on screen can ever compete with a safety signal.
+
+   Density is a service to the pharmacist: rows stay tight and columns stay
+   many, while every ink level clears WCAG AA at the size it actually ships at.
+   ═══════════════════════════════════════════════════════════════════════════ */
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* ── Ground and surfaces ────────────────────────────────────────────────
+     The page is never white. White is reserved for surfaces that hold data, so
+     a card reads as a card from its own lift rather than from a heavy border. */
+  --canvas: #f7f9fc;
+  --canvas-deep: #eef3f9;
+  --surface: #ffffff;
+  --surface-sunk: #f5f8fb;
+  --surface-hover: #f6fafd;
+  --surface-active: #e6f4fd;
+
+  /* ── Lines ──────────────────────────────────────────────────────────── */
+  --line: #e4eaf1;
+  --line-soft: #eef2f7;
+  --line-strong: #cdd8e5;
+
+  /* ── Ink ────────────────────────────────────────────────────────────────
+     Measured on --surface: ink 17.4:1 · ink-2 7.4:1 · ink-3 4.8:1.
+     ink-4 is 2.9:1 and is never used for body text. */
+  --ink: #0f172a;
+  --ink-2: #475569;
+  --ink-3: #64748b;
+  --ink-4: #94a3b8;
+
+  /* ── Primary ────────────────────────────────────────────────────────────
+     One cyan. It means "interactive" or "selected", and nothing else. Deep
+     enough that white sits on it at 4.6:1 rather than the 2.6:1 that the
+     brighter sky tones give you. */
+  --primary: #0284c7;
+  --primary-strong: #0369a1;
+  --primary-deep: #075985;
+  --primary-soft: #e8f5fe;
+  --primary-soft-2: #c9e8fb;
+  --primary-line: #8fd2f4;
+  --on-primary: #ffffff;
+
+  /* ── Clinical semantics ─────────────────────────────────────────────────
+     Reserved. No chrome, navigation or hover state may use these hues.
+     Each has a solid form for badges and a tinted form for surfaces. */
+  --ok: #047857;
+  --ok-solid: #059669;
+  --ok-soft: #e7f8f0;
+  --ok-line: #a7e6cb;
+
+  --warn: #b45309;
+  --warn-solid: #c2410c;
+  --warn-soft: #fff5e9;
+  --warn-line: #f7d3a8;
+
+  --danger: #dc2626;
+  --danger-strong: #b91c1c;
+  --danger-deep: #991b1b;
+  --danger-soft: #fef2f2;
+  --danger-line: #f8c4c4;
+
+  /* Neutral non-clinical emphasis — counts, "waiting", informational chips. */
+  --info: #6d28d9;
+  --info-solid: #7c3aed;
+  --info-soft: #f3efff;
+  --info-line: #d6c6fb;
+
+  /* WHO AWaRe */
+  --aware-access: var(--ok);
+  --aware-watch: var(--warn);
+  --aware-reserve: var(--danger);
+
+  /* ── Geometry ─────────────────────────────────────────────────────────
+     shadcn's @theme derives --radius-sm/md/lg/xl from --radius, so the corner
+     scale is now shared: our components and shadcn's round to the same values.
+     Only the extra-small step is ours, because shadcn has no equivalent. */
+  --radius: 0.625rem;
+  --radius-xs: 5px;
+
+  --row: 34px;
+  --rail: 240px;
+  --rail-collapsed: 60px;
+  --header: 60px;
+
+  /* Layered shadows: a tight contact shadow plus a wide ambient one, so a
+     surface reads as lifted rather than outlined. */
+  --shadow-xs: 0 1px 1px rgb(15 23 42 / 0.04), 0 1px 2px rgb(15 23 42 / 0.05);
+  --shadow-sm: 0 1px 2px rgb(15 23 42 / 0.05), 0 2px 6px -1px rgb(15 23 42 / 0.07);
+  --shadow: 0 1px 2px rgb(15 23 42 / 0.05), 0 8px 18px -6px rgb(15 23 42 / 0.12);
+  --shadow-lg: 0 2px 4px rgb(15 23 42 / 0.05), 0 24px 44px -12px rgb(15 23 42 / 0.20);
+  --shadow-pop: 0 2px 4px rgb(15 23 42 / 0.06), 0 16px 32px -8px rgb(15 23 42 / 0.22);
+
+  --font-ui: var(--font-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-code: var(--font-mono), ui-monospace, "SF Mono", Menlo, monospace;
+
+  --ease: cubic-bezier(0.2, 0.8, 0.25, 1);
+
+  color-scheme: light;
+
+  /* ── shadcn/ui semantic tokens ──────────────────────────────────────────
+     shadcn's components read these names. Rather than carry two palettes, each
+     one points at the clinical palette above — so every shadcn primitive comes
+     out in this product's colours, and there is still exactly one place to
+     change a colour. `--primary` serves both systems: it means the same thing
+     in each. Semantic clinical hues are deliberately NOT mapped here; nothing
+     shadcn renders should be able to reach for a safety colour by accident. */
+  --background: var(--canvas);
+  --foreground: var(--ink);
+
+  --card: var(--surface);
+  --card-foreground: var(--ink);
+
+  --popover: var(--surface);
+  --popover-foreground: var(--ink);
+
+  --primary-foreground: var(--on-primary);
+
+  --secondary: var(--surface-sunk);
+  --secondary-foreground: var(--ink);
+
+  --muted: var(--surface-sunk);
+  --muted-foreground: var(--ink-3);
+
+  --accent: var(--primary-soft);
+  --accent-foreground: var(--primary-deep);
+
+  --destructive: var(--danger);
+  --destructive-foreground: #ffffff;
+
+  --border: var(--line);
+  --input: var(--line-strong);
+  --ring: var(--primary);
+
+  /* Charts here are non-clinical series colours: a tonal run of the primary,
+     so a chart can never be mistaken for a severity reading. */
+  --chart-1: var(--primary);
+  --chart-2: #0ea5e9;
+  --chart-3: #38bdf8;
+  --chart-4: #7dd3fc;
+  --chart-5: var(--ink-4);
+
+  --sidebar: var(--surface);
+  --sidebar-foreground: var(--ink-2);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--on-primary);
+  --sidebar-accent: var(--primary-soft);
+  --sidebar-accent-foreground: var(--primary-deep);
+  --sidebar-border: var(--line);
+  --sidebar-ring: var(--primary);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* ═══ Reset ════════════════════════════════════════════════════════════════
+   In the base layer so component classes can still set a heading's size and
+   weight; an unlayered `h1 { font-size: inherit }` would silently outrank them. */
+@layer base {
+
+* {
+  box-sizing: border-box;
+  min-width: 0;
+  /* shadcn's primitives assume a default border colour and focus ring. */
+  border-color: var(--border);
+  outline-color: color-mix(in oklab, var(--ring) 50%, transparent);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  background: var(--canvas);
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  margin: 0;
+  color: var(--ink-2);
+  font-family: var(--font-ui);
+  font-size: 13.5px;
+  line-height: 20px;
+  letter-spacing: -0.004em;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-variant-numeric: tabular-nums;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  letter-spacing: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+button {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+h1, h2, h3, h4, p, figure, dl, dd {
+  margin: 0;
+  font-weight: inherit;
+  font-size: inherit;
+}
+
+table {
+  border-collapse: collapse;
+  border-spacing: 0;
+}
+
+/* ═══ Browser surfaces ═══════════════════════════════════════════════════ */
+
+::selection {
+  background: var(--primary-soft-2);
+  color: var(--primary-deep);
+}
+
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+  border-radius: var(--radius-xs);
+}
+
+input, textarea, select {
+  caret-color: var(--primary);
+}
+
+/* ink-3, not ink-4: placeholder text has to clear 4.5:1 like any other text,
+   and the catalogue's primary search field is a placeholder most of the time. */
+::placeholder {
+  color: var(--ink-3);
+  opacity: 1;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+*::-webkit-scrollbar { width: 12px; height: 12px; }
+*::-webkit-scrollbar-track { background: transparent; }
+
+*::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border: 3px solid transparent;
+  border-radius: var(--radius-sm);
+  background-clip: content-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--ink-4);
+  background-clip: content-box;
+}
+
+} /* @layer base */
+
+@layer components {
+
+/* ═══ Emphasis scale ═══════════════════════════════════════════════════════
+   One attribute carries emphasis everywhere, so a value's importance is set in
+   one place rather than re-decided per component.
+     0 faint · 1 secondary · 2 body · 3 primary reading · 4 interactive */
+
+[data-depth="0"] { color: var(--ink-4); }
+[data-depth="1"] { color: var(--ink-3); }
+[data-depth="2"] { color: var(--ink-2); }
+[data-depth="3"] { color: var(--ink); font-weight: 550; }
+[data-depth="4"] { color: var(--primary); font-weight: 550; }
+
+/* ═══ Type ═════════════════════════════════════════════════════════════════ */
+
+.t-data { font-size: 13.5px; line-height: 19px; }
+.t-sm { font-size: 12.5px; line-height: 17px; }
+.t-xs { font-size: 11.5px; line-height: 16px; }
+.t-prose { font-size: 13.5px; line-height: 21px; }
+
+.t-label {
+  display: inline-block;
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 600;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.t-title {
+  font-size: 15px;
+  line-height: 21px;
+  font-weight: 600;
+  letter-spacing: -0.012em;
+  color: var(--ink);
+}
+
+.t-display {
+  font-size: 18px;
+  line-height: 25px;
+  font-weight: 600;
+  letter-spacing: -0.018em;
+  color: var(--ink);
+}
+
+.t-display-lg {
+  font-size: 27px;
+  line-height: 34px;
+  font-weight: 650;
+  letter-spacing: -0.028em;
+  color: var(--ink);
+}
+
+.t-stat {
+  font-size: 23px;
+  line-height: 30px;
+  font-weight: 620;
+  letter-spacing: -0.026em;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+.t-num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+.t-code {
+  font-family: var(--font-code);
+  font-size: 12px;
+  letter-spacing: -0.01em;
+}
+
+/* ═══ Surfaces ═════════════════════════════════════════════════════════════ */
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+}
+
+.panel-lg {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+}
+
+.panel-flat {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+/* A panel's own header strip: sunk, ruled off, and never a second card. */
+.panel-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-sunk);
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+
+/* ═══ Rows and dividers ════════════════════════════════════════════════════ */
+
+.baseline { border-bottom: 1px solid var(--line-soft); }
+.baseline-strong { border-bottom: 1px solid var(--line); }
+
+.row { transition: background-color 120ms var(--ease); }
+.row:hover { background: var(--surface-hover); }
+
+.row[data-live="true"] {
+  background: var(--surface-active);
+  box-shadow: inset 2px 0 0 var(--primary);
+}
+
+/* A line the engine has implicated. Distinct from "selected", because the two
+   mean completely different things and must never be confused at a counter. */
+.row[data-flag="block"] { background: var(--danger-soft); }
+.row[data-flag="conflict"] { background: var(--warn-soft); }
+
+/* ═══ Badges ═══════════════════════════════════════════════════════════════
+   A badge states a clinical fact. Meaning survives greyscale and colour
+   blindness through the label, not the hue. */
+
+.cell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-width: 21px;
+  height: 19px;
+  padding: 0 6px;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--line);
+  background: var(--surface-sunk);
+  color: var(--ink-2);
+  font-size: 11px;
+  line-height: 1;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+/* Clinical classes ship solid: at a counter, a filled chip is found by the eye
+   a great deal faster than a tinted one, and the letter inside carries the
+   meaning when colour is unavailable. */
+.cell-access { background: var(--ok-solid); border-color: var(--ok); color: #fff; }
+.cell-watch { background: var(--warn-solid); border-color: var(--warn); color: #fff; }
+.cell-reserve { background: var(--danger); border-color: var(--danger-strong); color: #fff; }
+.cell-block { background: var(--danger); border-color: var(--danger-strong); color: #fff; }
+.cell-signal { background: var(--warn-solid); border-color: var(--warn); color: #fff; }
+.cell-primary { background: var(--primary); border-color: var(--primary-strong); color: #fff; }
+.cell-info { background: var(--info-solid); border-color: var(--info); color: #fff; }
+
+/* Tinted forms, for places where a wall of solid chips would shout. */
+.cell-access-soft { background: var(--ok-soft); border-color: var(--ok-line); color: var(--ok); }
+.cell-watch-soft { background: var(--warn-soft); border-color: var(--warn-line); color: var(--warn); }
+.cell-reserve-soft { background: var(--danger-soft); border-color: var(--danger-line); color: var(--danger); }
+.cell-primary-soft { background: var(--primary-soft); border-color: var(--primary-line); color: var(--primary-deep); }
+.cell-quiet { background: transparent; border-color: var(--line-strong); color: var(--ink-3); }
+
+/* ═══ Meter ════════════════════════════════════════════════════════════════ */
+
+.meter { display: inline-flex; gap: 2px; align-items: center; }
+
+.meter i {
+  width: 5px;
+  height: 11px;
+  background: var(--line);
+}
+
+.meter i[data-on="true"] { background: var(--ink-4); }
+.meter[data-tone="critical"] i[data-on="true"] { background: var(--danger); }
+.meter[data-tone="low"] i[data-on="true"] { background: var(--warn); }
+.meter[data-tone="healthy"] i[data-on="true"] { background: var(--ok); }
+.meter[data-tone="out"] i { background: var(--danger-line); }
+
+/* ═══ Buttons ══════════════════════════════════════════════════════════════
+   One button, four intents, three sizes. Depth comes from a hairline inner
+   highlight plus a contact shadow, and presses translate by a single pixel. */
+
+.act {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  height: 34px;
+  padding: 0 13px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 550;
+  letter-spacing: -0.006em;
+  white-space: nowrap;
+  box-shadow: var(--shadow-xs);
+  transition:
+    background-color 130ms var(--ease),
+    border-color 130ms var(--ease),
+    color 130ms var(--ease),
+    box-shadow 130ms var(--ease),
+    transform 130ms var(--ease);
+}
+
+.act:hover:not(:disabled) {
+  background: var(--surface-hover);
+  border-color: var(--ink-4);
+  box-shadow: var(--shadow-sm);
+}
+
+.act:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: none;
+  background: var(--surface-sunk);
+}
+
+.act:disabled {
+  color: var(--ink-4);
+  background: var(--surface-sunk);
+  border-color: var(--line);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.act-quiet {
+  border-color: transparent;
+  background: transparent;
+  color: var(--ink-3);
+  box-shadow: none;
+}
+
+.act-quiet:hover:not(:disabled) {
+  background: var(--surface-sunk);
+  border-color: transparent;
+  color: var(--ink);
+  box-shadow: none;
+}
+
+/* The lift is tinted with the primary's own channels, not a borrowed indigo. */
+.act-primary {
+  background: var(--primary);
+  border-color: var(--primary-strong);
+  color: var(--on-primary);
+  font-weight: 600;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.18),
+    0 1px 2px rgb(2 132 199 / 0.32),
+    0 4px 10px -2px rgb(2 132 199 / 0.34);
+}
+
+.act-primary:hover:not(:disabled) {
+  background: var(--primary-strong);
+  border-color: var(--primary-deep);
+  color: var(--on-primary);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.18),
+    0 2px 4px rgb(2 132 199 / 0.32),
+    0 8px 18px -4px rgb(2 132 199 / 0.40);
+}
+
+.act-primary:disabled {
+  background: var(--primary-soft-2);
+  border-color: var(--primary-line);
+  color: var(--ink-4);
+  box-shadow: none;
+}
+
+.act-danger {
+  background: var(--danger);
+  border-color: var(--danger-strong);
+  color: #fff;
+  font-weight: 600;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.18),
+    0 1px 2px rgb(185 28 28 / 0.30),
+    0 4px 10px -2px rgb(185 28 28 / 0.32);
+}
+
+.act-danger:hover:not(:disabled) {
+  background: var(--danger-strong);
+  border-color: var(--danger-deep);
+  color: #fff;
+}
+
+.act-lg { height: 40px; padding: 0 18px; font-size: 14px; border-radius: var(--radius); }
+.act-sm { height: 28px; padding: 0 10px; font-size: 12.5px; border-radius: var(--radius-xs); }
+.act-icon { width: 34px; padding: 0; }
+.act-icon.act-sm { width: 28px; }
+
+/* ═══ Segmented control ════════════════════════════════════════════════════ */
+
+.seg {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--surface-sunk);
+}
+
+.seg button {
+  height: 26px;
+  padding: 0 11px;
+  border-radius: var(--radius-xs);
+  font-size: 12.5px;
+  font-weight: 550;
+  color: var(--ink-3);
+  transition: background-color 130ms var(--ease), color 130ms var(--ease), box-shadow 130ms var(--ease);
+}
+
+.seg button:hover[aria-pressed="false"] { color: var(--ink); }
+
+.seg button[aria-pressed="true"] {
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 600;
+  box-shadow: var(--shadow-xs);
+}
+
+/* ═══ Fields ═══════════════════════════════════════════════════════════════ */
+
+.field {
+  display: block;
+  width: 100%;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 13.5px;
+  box-shadow: var(--shadow-xs);
+  transition: border-color 130ms var(--ease), box-shadow 130ms var(--ease);
+}
+
+.field:hover { border-color: var(--ink-4); }
+
+.field:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-soft-2);
+}
+
+textarea.field {
+  height: auto;
+  padding: 8px 10px;
+  line-height: 20px;
+  resize: vertical;
+}
+
+/* A field that holds more than an input — an icon, a shortcut hint, a clear
+   button. The shell carries the border so the inner input can stay bare. */
+.field-shell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 11px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: var(--shadow-xs);
+  transition: border-color 130ms var(--ease), box-shadow 130ms var(--ease);
+}
+
+.field-shell:hover { border-color: var(--ink-4); }
+
+.field-shell:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-soft-2);
+}
+
+.field-shell input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  background: transparent;
+  color: var(--ink);
+  outline: none;
+}
+
+select.field {
+  padding-right: 30px;
+  appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--ink-3) 50%),
+    linear-gradient(135deg, var(--ink-3) 50%, transparent 50%);
+  background-position: calc(100% - 15px) 15px, calc(100% - 10px) 15px;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+
+/* ═══ Menus and popovers ═══════════════════════════════════════════════════ */
+
+.pop {
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  box-shadow: var(--shadow-pop);
+  padding: 5px;
+}
+
+.pop-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  height: 32px;
+  padding: 0 9px;
+  border-radius: var(--radius-xs);
+  font-size: 13px;
+  color: var(--ink-2);
+  text-align: left;
+  transition: background-color 110ms var(--ease), color 110ms var(--ease);
+}
+
+.pop-item:hover,
+.pop-item[data-active="true"] {
+  background: var(--primary-soft);
+  color: var(--primary-deep);
+}
+
+.pop-item[aria-disabled="true"] {
+  color: var(--ink-4);
+  cursor: not-allowed;
+}
+
+.pop-sep {
+  height: 1px;
+  margin: 5px 4px;
+  background: var(--line-soft);
+}
+
+.pop-label {
+  padding: 7px 9px 3px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+}
+
+/* ═══ Keyboard hints ═══════════════════════════════════════════════════════ */
+
+.kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: var(--radius-xs);
+  background: var(--surface-sunk);
+  color: var(--ink-3);
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 550;
+  line-height: 1;
+}
+
+/* ═══ Alerts ═══════════════════════════════════════════════════════════════
+   Severity is stated by the whole notice — its border, its tint, its icon and
+   its rank word together. No side tab: a thick coloured edge on one side is
+   decoration standing in for meaning the notice already carries. */
+
+.band {
+  display: block;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.band + .band { margin-top: 8px; }
+
+/* The same notice at list density — inside a card a full-padding band would
+   dominate the record it is a footnote to. */
+.band-sm { padding: 6px 9px; border-radius: var(--radius-xs); }
+
+.band[data-sev="block"] { border-color: var(--danger-line); background: var(--danger-soft); }
+.band[data-sev="conflict"] { border-color: var(--warn-line); background: var(--warn-soft); }
+.band[data-sev="counsel"] { border-color: var(--primary-line); background: var(--primary-soft); }
+.band[data-sev="ok"] { border-color: var(--ok-line); background: var(--ok-soft); }
+
+/* ═══ Dialog ═══════════════════════════════════════════════════════════════ */
+
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 8vh 16px 16px;
+  background: rgb(15 23 42 / 0.32);
+  backdrop-filter: blur(2px);
+  overflow-y: auto;
+}
+
+.dialog {
+  width: 100%;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+  animation: dialog-in 180ms var(--ease) both;
+}
+
+@keyframes dialog-in {
+  from { opacity: 0; transform: translateY(-8px) scale(0.985); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ═══ Checkbox ═════════════════════════════════════════════════════════════
+   A filter is a checkbox, visibly. The previous rail used a caret that only
+   appeared once something was already selected, which gave no affordance that
+   several values could be picked at once. */
+
+.check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex: none;
+  border-radius: 4px;
+  border: 1.5px solid var(--line-strong);
+  background: var(--surface);
+  color: transparent;
+  transition: background-color 130ms var(--ease), border-color 130ms var(--ease), color 130ms var(--ease);
+}
+
+.facet:hover .check { border-color: var(--ink-4); }
+
+.facet[data-on="true"] .check {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+/* The same mark driven by a real input, for forms. A visually-hidden checkbox
+   keeps the keyboard and the accessibility tree intact while the box next to it
+   carries the appearance. */
+input:checked + .check {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+input:focus-visible + .check {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+input:checked + .check::after {
+  content: "";
+  width: 4px;
+  height: 8px;
+  margin-top: -2px;
+  border: solid #fff;
+  border-width: 0 1.8px 1.8px 0;
+  transform: rotate(45deg);
+}
+
+/* ═══ Switch ═══════════════════════════════════════════════════════════════
+   An on/off setting. Written as CSS rather than peer-variants because the knob
+   is a descendant of the track, not a sibling of the input, so `peer-checked:`
+   can never reach it. */
+
+.switch {
+  position: relative;
+  flex: none;
+  width: 36px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--line-strong);
+  transition: background-color 150ms var(--ease);
+}
+
+.switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: var(--shadow-xs);
+  transition: transform 150ms var(--ease);
+}
+
+input:checked + .switch { background: var(--primary); }
+input:checked + .switch::after { transform: translateX(16px); }
+input:focus-visible + .switch { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+/* Scope is one-of-many. A round control says that before it is clicked. */
+.check-radio {
+  border-radius: 50%;
+}
+
+.check-radio .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #fff;
+  opacity: 0;
+  transition: opacity 130ms var(--ease);
+}
+
+.facet[data-on="true"] .check-radio .dot { opacity: 1; }
+
+.facet {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 28px;
+  padding: 3px 6px;
+  border-radius: var(--radius-xs);
+  text-align: left;
+  transition: background-color 120ms var(--ease);
+}
+
+.facet:hover { background: var(--surface-sunk); }
+.facet[data-on="true"] { background: var(--primary-soft); }
+
+/* ═══ Disclosure ═══════════════════════════════════════════════════════════
+   The chevron rotates rather than swapping glyphs, and a collapsed group's
+   contents animate open so the change of shape is followed rather than
+   discovered. */
+
+.chev {
+  flex: none;
+  transition: transform 200ms var(--ease);
+}
+
+[aria-expanded="true"] > .chev { transform: rotate(180deg); }
+
+@keyframes reveal {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+
+.reveal { animation: reveal 180ms var(--ease) both; }
+
+/* The "show more" affordance: the list fades under a gradient and a nudging
+   arrow says there is more below it. */
+.more {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  width: 100%;
+  height: 28px;
+  margin-top: 2px;
+  border-radius: var(--radius-xs);
+  font-size: 12px;
+  font-weight: 550;
+  color: var(--primary);
+  transition: background-color 120ms var(--ease);
+}
+
+.more:hover { background: var(--primary-soft); }
+
+.more::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  height: 22px;
+  pointer-events: none;
+  background: linear-gradient(to top, var(--surface), rgb(255 255 255 / 0));
+}
+
+.more svg { animation: nudge 1.9s var(--ease) infinite; }
+
+@keyframes nudge {
+  0%, 62%, 100% { transform: translateY(0); }
+  76% { transform: translateY(2.5px); }
+}
+
+/* ═══ Motion ═══════════════════════════════════════════════════════════════ */
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.blink { animation: pulse 1.2s ease-in-out infinite; }
+
+/* Rows arrive as a set rather than one at a time — a single settle, not a
+   staggered cascade down a table of fifty. */
+@keyframes rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+.rise { animation: rise 220ms var(--ease) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+  .blink { animation: none; opacity: 1; }
+}
+
+/* ═══ Sticky regions ═══════════════════════════════════════════════════════
+   A sidebar sticks under the header and scrolls inside its own box once it is
+   taller than the screen, so it never drags the page or strands its own tail. */
+
+.sticky-rail {
+  position: sticky;
+  top: calc(var(--header) + 12px);
+  max-height: calc(100vh - var(--header) - 24px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* ═══ Identity monogram ════════════════════════════════════════════════════
+   A person needs a fixed anchor in a long list — initials sit where the eye
+   lands, so a row is recognisable before it is read. The tone carries the
+   patient's clinical risk, and the letters carry the identity, so neither
+   depends on the other. */
+
+.avatar {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--line);
+  background: var(--surface-sunk);
+  color: var(--ink-2);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  user-select: none;
+}
+
+.avatar-sm { width: 26px; height: 26px; font-size: 11px; }
+
+.avatar[data-tone="block"] {
+  background: var(--danger-soft);
+  border-color: var(--danger-line);
+  color: var(--danger);
+}
+
+.avatar[data-tone="conflict"] {
+  background: var(--warn-soft);
+  border-color: var(--warn-line);
+  color: var(--warn);
+}
+
+/* ═══ Tiles ════════════════════════════════════════════════════════════════
+   A card in a list or a board column. It lifts on hover so it reads as
+   something you can open, and marks selection with the same inset rule a table
+   row uses, so "this is the one I am looking at" means one thing everywhere. */
+
+.tile {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  transition:
+    border-color 120ms var(--ease),
+    box-shadow 120ms var(--ease),
+    transform 120ms var(--ease);
+}
+
+.tile:hover {
+  border-color: var(--line-strong);
+  box-shadow: var(--shadow);
+  transform: translateY(-1px);
+}
+
+.tile[data-live="true"] {
+  border-color: var(--primary-line);
+  box-shadow: var(--shadow), inset 2px 0 0 var(--primary);
+}
+
+/* A board column: a fixed-width lane that scrolls inside itself, so the board
+   pages sideways rather than growing the page down. */
+.lane {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--surface-sunk);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.lane-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* ═══ Utility ══════════════════════════════════════════════════════════════ */
+
+/* Pinned to its containing block's origin. Without top/left an absolutely
+   positioned label keeps its static position, and inside a scroll container
+   that static position sits far below the fold — which grows the document and
+   gives a locked, non-scrolling page a phantom scrollbar to nowhere. */
+.sr-only {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+} /* @layer components */
+
+/* ═══ Print ════════════════════════════════════════════════════════════════
+   A receipt is a real deliverable. Everything that is not the receipt is
+   removed, and the receipt itself is set for an 80mm roll. */
+
+@media print {
+  @page { margin: 8mm; }
+
+  body { background: #fff; }
+
+  .no-print,
+  aside,
+  header,
+  nav { display: none !important; }
+
+  .print-only { display: block !important; }
+
+  .print-root {
+    position: static !important;
+    inset: auto !important;
+    display: block !important;
+    padding: 0 !important;
+    background: #fff !important;
+    backdrop-filter: none !important;
+    overflow: visible !important;
+  }
+
+  .print-sheet {
+    width: 100% !important;
+    max-width: 78mm !important;
+    margin: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    animation: none !important;
+    color: var(--ink);
+  }
+
+  .print-sheet * { color: var(--ink) !important; }
+}
+
+.print-only { display: none; }
+
+@theme inline {
+  --font-heading: var(--font-sans);
+  --font-sans: var(--font-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
 }

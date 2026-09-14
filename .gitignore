@@ -30,11 +30,21 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files — real keys never go in the repo; .env.example documents the shape
 .env*
+!.env.example
 
 # vercel
 .vercel
+
+# Local agent / editor tooling. Useful on this machine, noise in the repo.
+.agent/
+.agents/
+.claude/
+.codex/
+.cursor/
+.gemini/
+.impeccable/
 
 # typescript
 *.tsbuildinfo
