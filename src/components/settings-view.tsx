@@ -14,7 +14,9 @@ import {
   Users,
 } from "lucide-react";
 import { Dialog, Menu, Toast } from "@/components/overlays";
-import type { Branch, Member, Organisation, Role, RoleId } from "@/data/organisation";
+import { InviteDialog } from "@/components/invite-dialog";
+import { OrganisationCard } from "@/components/organisation-card";
+import type { Branch, Member, Organisation, Role } from "@/data/organisation";
 import { SHORTCUTS } from "@/lib/shortcuts";
 
 type Tab = "organisation" | "branches" | "members" | "roles" | "clinical" | "keyboard";
@@ -40,12 +42,15 @@ export function SettingsView({
   members: seedMembers,
   roles,
   catalogue,
+  isDemo = false,
 }: {
   organisation: Organisation;
   branches: Branch[];
   members: Member[];
   roles: Role[];
   catalogue: { label: string; value: string }[];
+  /** The shared showroom tenant is readable by everyone and writable by nobody. */
+  isDemo?: boolean;
 }) {
   const [tab, setTab] = useState<Tab>("organisation");
   const [members, setMembers] = useState(seedMembers);
@@ -97,20 +102,7 @@ export function SettingsView({
       <div className="min-w-0">
         {tab === "organisation" ? (
           <div className="grid items-start gap-4 xl:grid-cols-2">
-            <Card
-              title="Organisation"
-              note="Printed on every receipt and register entry"
-              action={<button type="button" className="act act-sm">Edit</button>}
-            >
-              <Row label="Trading name" value={organisation.name} />
-              <Row label="Legal entity" value={organisation.legalName} />
-              <Row label="Tax number" value={organisation.ntn} mono />
-              <Row label="DRAP licence" value={organisation.drapLicence} mono />
-              <Row label="Registered address" value={organisation.address} />
-              <Row label="Phone" value={organisation.phone} />
-              <Row label="Email" value={organisation.email} />
-              <Row label="Currency" value={`${organisation.currency} — retail and cost carried per product`} />
-            </Card>
+            <OrganisationCard organisation={organisation} canEdit={!isDemo} onSaved={setToast} />
 
             <div className="grid gap-4">
               <Card title="Data behind this workspace">
@@ -381,11 +373,9 @@ export function SettingsView({
         roles={roles}
         branches={branches}
         onClose={() => setInviteOpen(false)}
-        onInvite={(member) => {
-          setMembers((current) => [...current, member]);
-          setInviteOpen(false);
+        onInvited={(email) => {
           setTab("members");
-          setToast(`Invitation sent to ${member.email}.`);
+          setToast(`Join link created for ${email}. Send it to them — it works once.`);
         }}
       />
 
@@ -491,148 +481,6 @@ function Field({
         </span>
       ) : null}
     </label>
-  );
-}
-
-function InviteDialog({
-  open,
-  roles,
-  branches,
-  onClose,
-  onInvite,
-}: {
-  open: boolean;
-  roles: Role[];
-  branches: Branch[];
-  onClose: () => void;
-  onInvite: (member: Member) => void;
-}) {
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [role, setRole] = useState<RoleId>("technician");
-  const [branchId, setBranchId] = useState(branches[0]?.id ?? "");
-  const [licence, setLicence] = useState("");
-  const [error, setError] = useState("");
-
-  const needsLicence = role === "pharmacist";
-
-  function submit(event: React.FormEvent) {
-    event.preventDefault();
-    if (name.trim().length < 2) return setError("Enter the member's full name.");
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) return setError("Enter a valid work email address.");
-    if (needsLicence && licence.trim().length < 4) {
-      return setError("A pharmacist needs a licence number — it is what authorises a clinical override.");
-    }
-
-    onInvite({
-      id: `m-${Date.now()}`,
-      name: name.trim(),
-      email: email.trim().toLowerCase(),
-      role,
-      branchId,
-      status: "invited",
-      lastActive: "Invitation just sent",
-      pharmacistLicence: needsLicence ? licence.trim() : undefined,
-    });
-
-    setName("");
-    setEmail("");
-    setLicence("");
-    setError("");
-  }
-
-  const chosen = roles.find((entry) => entry.id === role);
-
-  return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      title="Invite a member"
-      description="They will be emailed a link to set their own password."
-      width={560}
-      footer={
-        <>
-          <button type="button" className="act" onClick={onClose}>
-            Cancel
-          </button>
-          <button type="submit" form="invite-member" className="act act-primary">
-            <UserPlus size={15} strokeWidth={1.8} />
-            Send invitation
-          </button>
-        </>
-      }
-    >
-      <form id="invite-member" onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
-        <Field label="Full name" required className="sm:col-span-2">
-          <input value={name} onChange={(e) => setName(e.target.value)} className="field" autoComplete="off" />
-        </Field>
-
-        <Field label="Work email" required className="sm:col-span-2">
-          <input
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="field"
-            type="email"
-            autoComplete="off"
-          />
-        </Field>
-
-        <Field label="Role" required>
-          <select value={role} onChange={(e) => setRole(e.target.value as RoleId)} className="field">
-            {roles.map((entry) => (
-              <option key={entry.id} value={entry.id}>
-                {entry.name}
-              </option>
-            ))}
-          </select>
-        </Field>
-
-        <Field label="Branch" required>
-          <select value={branchId} onChange={(e) => setBranchId(e.target.value)} className="field">
-            {branches.map((branch) => (
-              <option key={branch.id} value={branch.id}>
-                {branch.name}
-              </option>
-            ))}
-          </select>
-        </Field>
-
-        {needsLicence ? (
-          <Field
-            label="Pharmacist licence"
-            required
-            hint="Recorded against every override this person signs"
-            className="sm:col-span-2"
-          >
-            <input
-              value={licence}
-              onChange={(e) => setLicence(e.target.value)}
-              className="field t-code"
-              placeholder="PC-PB-2019-11482"
-              autoComplete="off"
-            />
-          </Field>
-        ) : null}
-
-        {chosen ? (
-          <div className="band sm:col-span-2" data-sev="counsel">
-            <p className="t-label">What {chosen.name} can do</p>
-            <p className="t-sm mt-1" data-depth="2">
-              {chosen.summary}
-            </p>
-            <p className="t-sm mt-1.5" data-depth="1">
-              <span style={{ color: "var(--danger)" }}>Cannot:</span> {chosen.cannot.join(" · ")}
-            </p>
-          </div>
-        ) : null}
-
-        {error ? (
-          <p className="band t-sm sm:col-span-2" data-sev="block" role="alert" style={{ color: "var(--danger)" }}>
-            {error}
-          </p>
-        ) : null}
-      </form>
-    </Dialog>
   );
 }
 

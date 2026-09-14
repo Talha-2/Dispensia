@@ -2,9 +2,9 @@
 
 import { FormEvent, Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { Activity, BookLock, ShieldCheck } from "lucide-react";
 import { Mark } from "@/components/mark";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
-import { organisation } from "@/data/organisation";
 
 type Mode = "signin" | "signup";
 
@@ -132,7 +132,7 @@ function Auth() {
             onChange={(event) => setEmail(event.target.value)}
             className="field mt-1.5"
             autoComplete="username"
-            placeholder={`you@${organisation.email.split("@")[1] ?? "dispensia.pk"}`}
+            placeholder="you@pharmacy.pk"
             required
           />
         </label>
@@ -194,9 +194,11 @@ export default function LoginPage() {
         <div className="w-full max-w-[380px]">
           <Mark size={36} />
           <h1 className="t-display-lg mt-5">Dispensia</h1>
+          {/* The product, not a tenant: this page is reached before anybody
+              knows which pharmacy you belong to. */}
           <p className="t-prose mt-2" data-depth="1">
-            The counter workspace for {organisation.name} — dispensing, stock and the controlled-drug
-            register, with the safety engine running on every basket.
+            Counter dispensing, stock and the controlled-drug register for your pharmacy — with the
+            clinical safety engine running on every basket.
           </p>
           <Suspense fallback={null}>
             <Auth />
@@ -210,23 +212,55 @@ export default function LoginPage() {
         style={{ background: "var(--surface)" }}
       >
         <div className="mx-auto w-full max-w-[460px]">
-          <p className="t-label">Main Branch · Lahore</p>
+          <p className="t-label">What this workspace does</p>
           <h2 className="t-display mt-3">
             The safety engine runs on the whole basket, every time it changes.
           </h2>
-          <p className="t-prose mt-3" data-depth="1">
-            Interactions, WHO AWaRe stewardship, controlled-drug obligations and counselling duties are
-            read off each product record — not inferred at the counter.
-          </p>
 
-          <dl className="mt-8 grid grid-cols-2 gap-x-6 gap-y-5">
+          {/* Three claims, each with the mechanism that makes it true. A stat
+              grid alone said how big the catalogue is and nothing about why a
+              pharmacist would trust it. */}
+          <div className="mt-7">
             {[
-              ["10,434", "products in the catalogue"],
-              ["2,017", "distinct molecules"],
-              ["34", "interaction rules armed"],
-              ["1,406", "AWaRe-classified antibiotics"],
-              ["841", "manufacturers"],
-              ["255", "counselling duties"],
+              {
+                icon: <ShieldCheck size={17} strokeWidth={1.7} />,
+                title: "Interactions, before handover",
+                body: "34 rules ported from the incumbent engine, evaluated against every product in the basket together — not line by line, because the danger is usually in the combination that was safe a moment ago.",
+              },
+              {
+                icon: <Activity size={17} strokeWidth={1.7} />,
+                title: "Stewardship that is an obligation",
+                body: "WHO AWaRe class is read off the product record. A Reserve antibiotic raises a gate of its own, alongside the interaction rules.",
+              },
+              {
+                icon: <BookLock size={17} strokeWidth={1.7} />,
+                title: "A register that cannot be edited",
+                body: "Controlled supplies write an append-only entry before the basket can close. A correction is a new line, never a change to an old one.",
+              },
+            ].map((item) => (
+              <div key={item.title} className="baseline flex items-start gap-3 py-3 last:border-b-0">
+                <span className="mt-0.5 shrink-0" style={{ color: "var(--primary)" }}>
+                  {item.icon}
+                </span>
+                <div className="min-w-0">
+                  <h3 className="t-data" data-depth="3">
+                    {item.title}
+                  </h3>
+                  <p className="t-prose mt-1" data-depth="1">
+                    {item.body}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* The scale of the catalogue, as a footer strip rather than the
+              headline — it is evidence for the claims above, not the pitch. */}
+          <dl className="mt-6 grid grid-cols-3 gap-x-4 border-t border-(--line) pt-4">
+            {[
+              ["10,434", "products"],
+              ["2,017", "molecules"],
+              ["1,406", "AWaRe graded"],
             ].map(([value, label]) => (
               <div key={label}>
                 <dt className="t-stat">{value}</dt>
@@ -237,7 +271,7 @@ export default function LoginPage() {
             ))}
           </dl>
 
-          <p className="t-sm mt-8 border-t border-(--line) pt-4" data-depth="0">
+          <p className="t-sm mt-5" data-depth="0">
             Product facts are real. Stock levels, batches, patients and register entries are demo data and
             are labelled as such throughout the workspace.
           </p>

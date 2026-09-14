@@ -2,7 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Building2 } from "lucide-react";
+import { Building2, LogIn } from "lucide-react";
 import { Mark } from "@/components/mark";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 
@@ -30,6 +30,45 @@ export default function OnboardingPage() {
   const [licence, setLicence] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+
+  // Two ways in, and they are not symmetric: most people who reach this screen
+  // were invited and are joining something that already exists. The choice is
+  // put first so neither path is the one you have to back out of.
+  const [path, setPath] = useState<"create" | "join">("create");
+  const [joinLink, setJoinLink] = useState("");
+  const [joinError, setJoinError] = useState("");
+  const [joining, setJoining] = useState(false);
+
+  async function join(event: FormEvent) {
+    event.preventDefault();
+    setJoinError("");
+
+    // Accept a whole pasted URL or a bare token — people paste what they were
+    // sent, and the last path segment is the token either way.
+    const token = joinLink.trim().replace(/[/\s]+$/, "").split("/").pop() ?? "";
+    if (token.length < 8) {
+      setJoinError("Paste the whole invitation link you were sent.");
+      return;
+    }
+
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) {
+      setJoinError("Supabase is not configured, so invitations cannot be accepted in this build.");
+      return;
+    }
+
+    setJoining(true);
+    const { error: rpcError } = await supabase.rpc("accept_invitation", { invite_token: token });
+    setJoining(false);
+
+    if (rpcError) {
+      setJoinError(rpcError.message);
+      return;
+    }
+
+    router.push("/dashboard");
+    router.refresh();
+  }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -82,13 +121,73 @@ export default function OnboardingPage() {
   return (
     <main className="mx-auto min-h-screen w-full max-w-[720px] px-6 py-12">
       <Mark size={34} />
-      <h1 className="t-display-lg mt-5">Create your organisation</h1>
+      <h1 className="t-display-lg mt-5">Set up your workspace</h1>
       <p className="t-prose mt-2 max-w-[60ch]" data-depth="1">
-        This names the pharmacy on every receipt, register entry and audit line. You can change any of
-        it later in Settings — only the trading name is needed now.
+        Join the pharmacy that invited you, or start a new one. Either way you can keep looking around
+        the demo first — nothing you do there touches real data.
       </p>
 
-      <form onSubmit={submit} className="panel mt-7 grid gap-4 p-5 sm:grid-cols-2">
+      <div className="seg mt-6 w-full max-w-[420px]" role="group" aria-label="How to continue">
+        <button
+          type="button"
+          className="flex-1"
+          aria-pressed={path === "create"}
+          onClick={() => setPath("create")}
+        >
+          Create an organisation
+        </button>
+        <button
+          type="button"
+          className="flex-1"
+          aria-pressed={path === "join"}
+          onClick={() => setPath("join")}
+        >
+          Join with a link
+        </button>
+      </div>
+
+      {path === "join" ? (
+        <form onSubmit={join} className="panel mt-5 p-5">
+          <label className="block">
+            <span className="t-label">Invitation link</span>
+            <input
+              value={joinLink}
+              onChange={(event) => setJoinLink(event.target.value)}
+              className="field t-code mt-1.5"
+              placeholder="https://…/invite/abc123…"
+              autoComplete="off"
+              autoFocus
+            />
+            <span className="t-xs mt-1 block" data-depth="1">
+              Paste the whole link. It only opens for the email address it was issued to, so sign in as
+              that address first.
+            </span>
+          </label>
+
+          {joinError ? (
+            <p className="band t-sm mt-4" data-sev="block" role="alert" style={{ color: "var(--danger)" }}>
+              {joinError}
+            </p>
+          ) : null}
+
+          <div className="mt-5 flex flex-wrap items-center gap-3">
+            <button type="submit" className="act act-primary act-lg" disabled={joining}>
+              <LogIn size={16} strokeWidth={1.8} />
+              {joining ? "Joining…" : "Join the organisation"}
+            </button>
+            <a href="/dashboard" className="act act-lg">
+              Keep looking around the demo
+            </a>
+          </div>
+        </form>
+      ) : (
+        <>
+          <p className="t-prose mt-5 max-w-[60ch]" data-depth="1">
+            This names the pharmacy on every receipt, register entry and audit line. You can change any of
+            it later in Settings — only the trading name is needed now.
+          </p>
+
+          <form onSubmit={submit} className="panel mt-4 grid gap-4 p-5 sm:grid-cols-2">
         <Field label="Trading name" required className="sm:col-span-2">
           <input
             value={name}
@@ -168,7 +267,9 @@ export default function OnboardingPage() {
             Keep looking around the demo
           </a>
         </div>
-      </form>
+          </form>
+        </>
+      )}
 
       <p className="t-sm mt-6" data-depth="1">
         Until you create one, the workspace runs on the shared <strong>Demo Pharmacy</strong> — real

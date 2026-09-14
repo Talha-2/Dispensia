@@ -65,6 +65,7 @@ export default async function SettingsPage() {
         members={members}
         roles={roles}
         catalogue={catalogue}
+        isDemo={tenant.isDemo}
       />
     </Shell>
   );

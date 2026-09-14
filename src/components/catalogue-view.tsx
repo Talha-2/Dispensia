@@ -1274,7 +1274,10 @@ function ListView({
   onOpen: (id: string) => void;
 }) {
   return (
-    <div>
+    // The rows scroll, not the page. This screen is locked to the viewport, so
+    // a list without its own scroll container does not overflow — it is clipped,
+    // and every row past the fold becomes unreachable.
+    <div className="panel min-h-0 flex-1 overflow-y-auto px-3">
       {items.map((medicine) => {
         const live = open === medicine.id;
         const state = shelfState(medicine);
@@ -1362,8 +1365,8 @@ function ListView({
 }
 
 /* ═══ Board ════════════════════════════════════════════════════════════════
-   Columns, not cards. Each division is a plane of baselines separated by a
-   vertical hairline; nothing is enclosed and nothing is rounded. */
+   Lanes, each scrolling inside itself, so the board pages sideways instead of
+   growing a screen that is locked to the viewport. */
 
 const GROUP_LABEL: Record<string, string> = {
   RESERVE: "Reserve",
