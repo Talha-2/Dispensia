@@ -3,6 +3,16 @@ import { CommandField } from "@/components/command";
 import { Rail, RailStrip } from "@/components/rail";
 import { query } from "@/lib/catalogue";
 import { patients } from "@/data/patients";
+import { getTenant } from "@/lib/tenant";
+
+/** Initials for the avatar, from whatever name the account actually carries. */
+function monogram(name: string) {
+  const parts = name.split(/[\s.]+/).filter(Boolean);
+  if (!parts.length) return "??";
+  const first = parts[0][0] ?? "";
+  const last = parts.length > 1 ? (parts[parts.length - 1][0] ?? "") : (parts[0][1] ?? "");
+  return `${first}${last}`.toUpperCase();
+}
 
 /**
  * The frame every screen rides on: a fixed nav rail carrying live branch
@@ -28,6 +38,7 @@ export async function Shell({
    */
   fill?: boolean;
 }) {
+  const tenant = await getTenant();
   const stocked = query({ scope: "stocked", size: 5 });
   const reserve = query({ aware: ["RESERVE"], size: 5 });
   const controlled = query({ flags: ["controlled"], size: 5 });
@@ -61,6 +72,26 @@ export async function Shell({
             </div>
 
             <div className="hidden items-center gap-4 md:flex">
+              {/* Which organisation this workspace is acting for. On the shared
+                  demo it says so and offers the way out, because a pharmacist
+                  must never be unsure whether what they are looking at is real. */}
+              {tenant.isDemo ? (
+                <a href="/onboarding" className="flex items-center gap-2" title="Create your organisation">
+                  <span className="cell cell-watch-soft">DEMO</span>
+                  <span className="t-sm" data-depth="2">
+                    {tenant.organisation.name}
+                  </span>
+                </a>
+              ) : (
+                <span className="t-sm" data-depth="2">
+                  {tenant.organisation.name}
+                </span>
+              )}
+              <span
+                aria-hidden="true"
+                className="h-5 w-px shrink-0"
+                style={{ background: "var(--line)" }}
+              />
               <span className="t-sm" data-depth="1">
                 Mon 14 Sep 2026
               </span>
@@ -79,14 +110,14 @@ export async function Shell({
                     boxShadow: "var(--shadow-xs)",
                   }}
                 >
-                  AY
+                  {monogram(tenant.signedInAs ?? "A. Yousaf")}
                 </span>
                 <span className="leading-tight">
                   <span className="block text-[13px] font-semibold" style={{ color: "var(--ink)" }}>
-                    A. Yousaf
+                    {tenant.signedInAs ?? "A. Yousaf"}
                   </span>
                   <span className="block text-[11.5px]" style={{ color: "var(--ink-3)" }}>
-                    Pharmacist on duty
+                    {tenant.needsOnboarding ? "No organisation yet" : "Pharmacist on duty"}
                   </span>
                 </span>
               </span>

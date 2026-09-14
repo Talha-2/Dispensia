@@ -54,7 +54,9 @@ node scripts/build-catalogue.mjs [path-to-medicine.json]
 | `/register` | The controlled-drug register. |
 | `/dashboard` | Operational overview — what needs the pharmacist now. |
 | `/reports` | Holding value, AWaRe mix, expiry exposure, margin distribution. |
-| `/settings` | Clinical defaults, workspace, keyboard reference. |
+| `/settings` | Organisation, branches, members, roles, clinical defaults, keyboard reference. |
+| `/login` | Sign in or create an account. |
+| `/onboarding` | Create an organisation and its first branch. |
 
 Try a blocked basket:
 `/dispensing?lines=warfarin,alkeris&patient=p-1042`
@@ -122,18 +124,45 @@ POST /api/scan     { lines: [{id, qty}], patient: {age, sex}, cleared: [ruleKey]
 
 ## Production backend
 
-Supabase is optional — without credentials the app runs in demo mode with open sign-in.
+Supabase is optional — without credentials the app runs on the Demo tenant with open sign-in.
 
 1. Create a Supabase project.
 2. Copy `.env.example` to `.env.local` and add the URL and keys.
-3. Run `supabase/migrations/202609130001_initial_schema.sql`.
+3. Run the migrations **in order** (Supabase SQL editor, or `supabase db push`):
+
+   | | |
+   |---|---|
+   | `202609130001_initial_schema.sql` | Tables, indexes, row-level security |
+   | `202609140001_staff_role_values.sql` | Adds the `owner` and `cashier` roles |
+   | `202609140002_tenancy_and_demo_org.sql` | Tenant profile columns, tenant policies, `create_organization()`, and the Demo Pharmacy seed |
+
 4. Set `NEXT_PUBLIC_BACKEND_ENABLED=true`.
 
-The initial migration enables row-level security and scopes staff reads to their organisation.
-Configure staff profiles and role policies before enabling production mutations.
+The second file must run on its own: PostgreSQL will not let a migration use an enum value in
+the same transaction that adds it.
 
-Sign-in and **Create account** on `/login` both go through Supabase Auth. Without credentials
-configured, either button opens the workspace in demo mode.
+## Organisations
+
+Dispensia is multi-tenant. Anyone can sign up, and the first thing they do is create an
+organisation — a trading name, a first branch, a tax number and a retail licence. From then on
+every read and write is scoped to that organisation by row-level security, and the receipt,
+the register and the audit log all carry its name.
+
+Creating one goes through `create_organization()`, a `security definer` function: it is the only
+write that cannot be gated on membership, because the caller is not a member of anything yet. It
+makes the organisation, its first branch and the caller's owner profile in one transaction, and
+refuses an account that already belongs somewhere.
+
+### The Demo tenant
+
+A single shared **Demo Pharmacy** is seeded by the migration and is readable by every signed-in
+account, writable by none. An account with no organisation of its own lands there, so the counter,
+catalogue, patients, safety, register and reports are all exercisable immediately. The header says
+`DEMO` and links to `/onboarding` whenever that is what you are looking at, so nobody has to guess
+whether the data in front of them is real.
+
+Sign in and **Create account** on `/login` both go through Supabase Auth. Without credentials
+configured, either button opens the Demo tenant directly.
 
 ## Deploying to Vercel
 

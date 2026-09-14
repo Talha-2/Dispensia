@@ -1,10 +1,14 @@
 /**
- * The organisation this workspace belongs to.
+ * The Demo tenant.
  *
- * SYNTHETIC. A real deployment reads this from Supabase, scoped by row-level
- * security to the signed-in staff member's organisation. It lives here so the
- * receipt, the register and the settings screen all quote the same names rather
- * than each hard-coding "Main Branch".
+ * Dispensia is a product, not one pharmacy's install: a real organisation is
+ * created at sign-up and read from Supabase, scoped by row-level security to
+ * the signed-in staff member. This module is the shared **Demo Pharmacy** that
+ * every account can open before it has an organisation of its own — so the
+ * counter, the register and the settings screen all have something real to run
+ * against, and all quote the same names rather than each hard-coding a branch.
+ *
+ * SYNTHETIC throughout, and labelled as such wherever it surfaces.
  */
 
 export type Role = {
@@ -53,18 +57,21 @@ export type Organisation = {
   email: string;
   currency: string;
   taxNote: string;
+  /** True for the shared showroom tenant, so the UI can say so out loud. */
+  isDemo?: boolean;
 };
 
 export const organisation: Organisation = {
-  name: "Dispensia Pharmacy",
-  legalName: "Dispensia Pharmacy (Private) Limited",
-  ntn: "NTN 4270183-6",
-  drapLicence: "DRAP-RP-LHR-04412",
+  name: "Demo Pharmacy",
+  legalName: "Demo Pharmacy (Private) Limited",
+  ntn: "NTN 0000000-0",
+  drapLicence: "DRAP-RP-DEMO-0001",
   address: "14-C Main Boulevard, Gulberg III, Lahore 54660",
   phone: "+92 42 111 723 723",
-  email: "counter@dispensia.pk",
+  email: "demo@dispensia.app",
   currency: "PKR",
-  taxNote: "Prices include GST where applicable.",
+  taxNote: "Demonstration data. Prices include GST where applicable.",
+  isDemo: true,
 };
 
 export const branches: Branch[] = [

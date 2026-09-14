@@ -2,7 +2,7 @@
 
 import { Mark } from "@/components/mark";
 import { pkr } from "@/components/primitives";
-import { currentBranch, organisation } from "@/data/organisation";
+import { useTenant } from "@/components/tenant";
 import type { Medicine, Patient } from "@/lib/types";
 
 export type Sale = {
@@ -35,6 +35,7 @@ export function makeReference() {
  * the audit log.
  */
 export function Receipt({ sale }: { sale: Sale }) {
+  const { organisation, currentBranch } = useTenant();
   const vatable = sale.total;
 
   return (

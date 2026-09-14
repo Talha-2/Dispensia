@@ -1,6 +1,7 @@
 import { SettingsView } from "@/components/settings-view";
 import { Shell } from "@/components/shell";
-import { branches, members, organisation, roles } from "@/data/organisation";
+import { members as demoMembers, roles } from "@/data/organisation";
+import { getTenant } from "@/lib/tenant";
 import { getCatalogueMeta, query } from "@/lib/catalogue";
 import { RULES } from "@/lib/safety";
 
@@ -8,7 +9,26 @@ export const metadata = {
   title: "Settings · Dispensia",
 };
 
-export default function SettingsPage() {
+export default async function SettingsPage() {
+  const tenant = await getTenant();
+  const { organisation, branches } = tenant;
+
+  // A real organisation starts with the person who created it. Only the shared
+  // demo tenant carries a staffed roster.
+  const members = tenant.isDemo
+    ? demoMembers
+    : [
+        {
+          id: "me",
+          name: tenant.signedInAs ?? "Owner",
+          email: organisation.email,
+          role: "owner" as const,
+          branchId: tenant.currentBranch.id,
+          status: "active" as const,
+          lastActive: "just now",
+        },
+      ];
+
   const meta = getCatalogueMeta();
   const stocked = query({ scope: "stocked", size: 1 });
 

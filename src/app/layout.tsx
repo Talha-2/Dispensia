@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Geist_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
+import { TenantProvider } from "@/components/tenant";
+import { getTenant } from "@/lib/tenant";
 import "./globals.css";
 
 // Plus Jakarta Sans — pinned by the user. A modern geometric humanist with a
@@ -37,7 +39,11 @@ export const viewport: Viewport = {
   colorScheme: "light",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  // Resolved once per request and handed down, so every surface that names the
+  // organisation — receipt, register, settings — names the same one.
+  const tenant = await getTenant();
+
   return (
     <html lang="en" data-scroll-behavior="smooth" className={`${sans.variable} ${mono.variable}`}>
       <body>
@@ -63,7 +69,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           FINISH: unreviewed and undocumented is unfinished; this build ends with the finish
           review, the verdict, DESIGN.md, and every shipping raster carrying its provenance.
         */}
-        {children}
+        <TenantProvider value={tenant}>{children}</TenantProvider>
         {/* One toast host for the whole app — sonner owns the queue. */}
         <Toaster position="bottom-right" closeButton richColors={false} />
       </body>
