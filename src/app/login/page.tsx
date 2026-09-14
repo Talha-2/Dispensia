@@ -21,6 +21,14 @@ function Auth() {
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
 
+  // Any message describes the attempt that produced it. The moment the reader
+  // changes something, it is describing the past — so it goes.
+  const edit = <T,>(set: (value: T) => void) => (value: T) => {
+    if (error) setError("");
+    if (notice) setNotice("");
+    set(value);
+  };
+
   const switchTo = (to: Mode) => {
     setMode(to);
     setError("");
@@ -64,13 +72,22 @@ function Auth() {
         return;
       }
 
-      // Supabase returns a user with no session when email confirmation is on.
+      // Supabase returns a user with no session when email confirmation is on —
+      // but it returns the same shape for an address that already exists and is
+      // already confirmed. Rather than telling somebody to go and confirm an
+      // account they confirmed last week, try signing them in: if the address is
+      // usable, that succeeds and they are simply in.
       if (!data.session) {
-        setNotice(`Account created. Confirm the link sent to ${email}, then sign in.`);
-        setMode("signin");
-        setPassword("");
-        setBusy(false);
-        return;
+        const { error: straightIn } = await supabase.auth.signInWithPassword({ email, password });
+
+        if (straightIn) {
+          setNotice(
+            `Check ${email} for a confirmation link. Once you have clicked it, sign in here with the password you just chose.`,
+          );
+          setMode("signin");
+          setBusy(false);
+          return;
+        }
       }
     } else {
       const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
@@ -112,7 +129,7 @@ function Auth() {
             <span className="t-label">Full name</span>
             <input
               value={name}
-              onChange={(event) => setName(event.target.value)}
+              onChange={(event) => edit(setName)(event.target.value)}
               className="field mt-1.5"
               autoComplete="name"
               placeholder="A. Yousaf"
@@ -129,7 +146,7 @@ function Auth() {
           <input
             type="email"
             value={email}
-            onChange={(event) => setEmail(event.target.value)}
+            onChange={(event) => edit(setEmail)(event.target.value)}
             className="field mt-1.5"
             autoComplete="username"
             placeholder="you@pharmacy.pk"
@@ -142,7 +159,7 @@ function Auth() {
           <input
             type="password"
             value={password}
-            onChange={(event) => setPassword(event.target.value)}
+            onChange={(event) => edit(setPassword)(event.target.value)}
             className="field mt-1.5"
             autoComplete={mode === "signup" ? "new-password" : "current-password"}
             required
