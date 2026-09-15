@@ -9,6 +9,15 @@ import {
   type Organisation,
 } from "@/data/organisation";
 
+export type Membership = {
+  organization_id: string;
+  name: string;
+  is_demo: boolean;
+  role: string;
+  branch_id: string | null;
+  is_active: boolean;
+};
+
 export type Tenant = {
   organisation: Organisation;
   branches: Branch[];
@@ -21,6 +30,9 @@ export type Tenant = {
   isDemo: boolean;
   /** True when the account has no organisation yet and should be onboarded. */
   needsOnboarding: boolean;
+  /** Every pharmacy this account may act for, resolved server-side so the
+      switcher is correct on first paint rather than after a round trip. */
+  memberships: Membership[];
 };
 
 type OrgRow = {
@@ -87,6 +99,7 @@ const demoTenant = (extra: Partial<Tenant> = {}): Tenant => ({
   signedInEmail: null,
   isDemo: true,
   needsOnboarding: false,
+  memberships: [],
   ...extra,
 });
 
@@ -143,7 +156,7 @@ export async function getTenant(): Promise<Tenant> {
     return demoTenant({ signedInAs: displayName, signedInEmail: email, needsOnboarding: true });
   }
 
-  const [{ data: org }, { data: rows }] = await Promise.all([
+  const [{ data: org }, { data: rows }, { data: mine }] = await Promise.all([
     supabase.from("organizations").select(ORG_FIELDS).eq("id", profile.organization_id).maybeSingle(),
     supabase
       .from("branches")
@@ -151,6 +164,7 @@ export async function getTenant(): Promise<Tenant> {
       .eq("organization_id", profile.organization_id)
       .order("is_primary", { ascending: false })
       .order("name"),
+    supabase.rpc("my_organizations"),
   ]);
 
   if (!org) {
@@ -170,5 +184,6 @@ export async function getTenant(): Promise<Tenant> {
     signedInEmail: email,
     isDemo: Boolean((org as OrgRow).is_demo),
     needsOnboarding: false,
+    memberships: (mine as Membership[] | null) ?? [],
   };
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Building2, Check, ChevronsUpDown, FlaskConical, MapPin, Plus } from "lucide-react";
 import { Menu, type MenuEntry } from "@/components/overlays";
@@ -31,28 +31,20 @@ export type Membership = {
 export function OrgSwitcher({
   current,
   branch,
+  memberships,
   collapsed = false,
 }: {
   current: string;
   branch: string;
+  /** Resolved on the server, so the menu is right the first time it opens. It
+      used to be fetched on mount, which meant a menu that opened empty and
+      offered to join the demo you were already standing in. */
+  memberships: Membership[];
   collapsed?: boolean;
 }) {
   const router = useRouter();
-  const [orgs, setOrgs] = useState<Membership[] | null>(null);
+  const orgs = memberships;
   const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      const supabase = getSupabaseBrowserClient();
-      if (!supabase) return;
-      const { data } = await supabase.rpc("my_organizations");
-      if (alive) setOrgs((data as Membership[]) ?? []);
-    })();
-    return () => {
-      alive = false;
-    };
-  }, []);
 
   async function switchTo(id: string) {
     const supabase = getSupabaseBrowserClient();
@@ -88,12 +80,12 @@ export function OrgSwitcher({
     router.refresh();
   }
 
-  const inDemo = orgs?.some((org) => org.is_demo && org.is_active) ?? false;
-  const hasDemo = orgs?.some((org) => org.is_demo) ?? false;
+  const inDemo = orgs.some((org) => org.is_demo && org.is_active);
+  const hasDemo = orgs.some((org) => org.is_demo);
 
   const items: MenuEntry[] = [
     { label: "Pharmacies", heading: true },
-    ...(orgs ?? []).map((org) => ({
+    ...orgs.map((org) => ({
       label: `${org.name}${org.is_demo ? " · demo" : ""}`,
       onSelect: () => switchTo(org.organization_id),
       disabled: org.is_active,

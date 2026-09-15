@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { useClerk } from "@clerk/nextjs";
 import { Mark } from "@/components/mark";
-import { OrgSwitcher } from "@/components/switchers";
+import { OrgSwitcher, type Membership } from "@/components/switchers";
 
 export type RailCounts = {
   reorder: number;
@@ -93,10 +93,12 @@ export function Rail({
   counts,
   organisation,
   branch,
+  memberships,
 }: {
   counts: RailCounts;
   organisation: string;
   branch: string;
+  memberships: Membership[];
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -157,7 +159,7 @@ export function Rail({
             <Mark size={open ? 26 : 24} />
           </Link>
           {open ? (
-            <OrgSwitcher current={organisation} branch={branch} />
+            <OrgSwitcher current={organisation} branch={branch} memberships={memberships} />
           ) : null}
         </span>
       </div>

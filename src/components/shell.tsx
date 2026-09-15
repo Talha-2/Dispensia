@@ -64,6 +64,7 @@ export async function Shell({
         counts={counts}
         organisation={tenant.organisation.name}
         branch={tenant.currentBranch.name}
+        memberships={tenant.memberships}
       />
 
       <div
