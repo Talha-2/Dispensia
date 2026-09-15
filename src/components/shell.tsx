@@ -43,17 +43,17 @@ export async function Shell({
   const tenant = await getTenant();
   const [patients, stock] = await Promise.all([getPatients(), getStock()]);
 
-  // Reserve and controlled are catalogue facts — how many such products exist.
-  // Everything else is this shelf, and reads zero until something is received.
-  const reserve = query({ aware: ["RESERVE"], size: 1 });
-  const controlled = query({ flags: ["controlled"], size: 1 });
   const all = query({ size: 1 });
 
+  // Every figure here is this branch own shelf. The panel is headed needs
+  // attention, and a national catalogue count needs nobody attention —
+  // Controlled lines 93 read as though this pharmacy held 93 of them while
+  // it held none.
   const counts = {
     reorder: stock.summary.needsReorder,
     expiring: stock.summary.expiringSoon,
-    reserve: reserve.total,
-    controlled: controlled.total,
+    controlled: stock.lines.filter((line) => line.medicine.flags.includes("controlled")).length,
+    outOfStock: stock.summary.outOfStock,
     stocked: stock.summary.lines,
     total: all.total,
   };
@@ -119,7 +119,14 @@ export async function Shell({
                     {tenant.signedInAs ?? "A. Yousaf"}
                   </span>
                   <span className="block text-[11.5px]" style={{ color: "var(--ink-3)" }}>
-                    {tenant.needsOnboarding ? "No organisation yet" : "Pharmacist on duty"}
+                    {/* The real role, not a flattering one. A technician was
+                        being labelled "Pharmacist on duty" on a screen where
+                        who you are decides what you may sign. */}
+                    {tenant.needsOnboarding
+                      ? "No organisation yet"
+                      : tenant.role
+                        ? `${tenant.role[0].toUpperCase()}${tenant.role.slice(1)} on duty`
+                        : "Signed in"}
                   </span>
                 </span>
               </span>

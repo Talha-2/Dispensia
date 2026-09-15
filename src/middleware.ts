@@ -18,7 +18,28 @@ const isProtected = createRouteMatcher([
   "/onboarding(.*)",
 ]);
 
+/**
+ * The endpoints that change something, or that answer for a particular
+ * pharmacy. They were unguarded: row-level security still refused an anonymous
+ * caller everything, but the refusal arrived from Postgres as a puzzle — "join
+ * an organisation" — rather than as "you are not signed in".
+ *
+ * The read-only catalogue endpoints are deliberately left open: /api/suggest,
+ * /api/scan, /api/catalogue, /api/inventory and /api/product all describe the
+ * national drug catalogue and a public rule book, and carry nothing belonging
+ * to anybody.
+ */
+const isProtectedApi = createRouteMatcher(["/api/dispense(.*)", "/api/demo(.*)"]);
+
 export default clerkMiddleware(async (auth, request) => {
+  if (isProtectedApi(request)) {
+    const { userId } = await auth();
+    if (userId) return NextResponse.next();
+    // An API answers an API caller. Redirecting one to a sign-in page hands it
+    // an HTML document where it expected a result.
+    return NextResponse.json({ error: "Sign in to do that." }, { status: 401 });
+  }
+
   if (!isProtected(request)) return NextResponse.next();
 
   const { userId } = await auth();

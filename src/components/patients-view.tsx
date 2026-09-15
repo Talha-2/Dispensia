@@ -11,21 +11,35 @@ import type { Patient } from "@/lib/types";
 
 type View = "table" | "list" | "board";
 
-/** The gates in the safety engine that a patient's own age and sex will arm. */
+/**
+ * The gates in the safety engine that a patient's own age and sex will arm.
+ *
+ * An unrecorded age arms nothing, and says so. Treating it as 0 used to arm
+ * every paediatric block on an adult whose record was merely incomplete; the
+ * honest answer is that the engine cannot speak for this patient yet.
+ */
 function gatesFor(patient: Patient): { label: string; tone: string }[] {
   const gates: { label: string; tone: string }[] = [];
-  if (patient.age < 2) gates.push({ label: "Promethazine block", tone: "var(--danger)" });
-  if (patient.age < 8) gates.push({ label: "Tetracycline block", tone: "var(--danger)" });
-  if (patient.age < 16) gates.push({ label: "Aspirin / Reye's block", tone: "var(--danger)" });
-  if (patient.age < 18) {
+  const { age, sex } = patient;
+
+  if (age === undefined) {
+    return [{ label: "Age not recorded — age gates dark", tone: "var(--warn)" }];
+  }
+
+  if (age < 2) gates.push({ label: "Promethazine block", tone: "var(--danger)" });
+  if (age < 8) gates.push({ label: "Tetracycline block", tone: "var(--danger)" });
+  if (age < 16) gates.push({ label: "Aspirin / Reye's block", tone: "var(--danger)" });
+  if (age < 18) {
     gates.push({ label: "Benzodiazepine block", tone: "var(--danger)" });
     gates.push({ label: "Fluoroquinolone review", tone: "var(--warn)" });
   }
-  if (patient.sex === "f" && patient.age >= 15 && patient.age <= 50) {
+  if (!sex) {
+    gates.push({ label: "Sex not recorded — pregnancy gates dark", tone: "var(--warn)" });
+  } else if (sex === "f" && age >= 15 && age <= 50) {
     gates.push({ label: "ACEi / ARB pregnancy gate", tone: "var(--warn)" });
     gates.push({ label: "Teratogen pregnancy check", tone: "var(--warn)" });
   }
-  if (patient.age > 35) gates.push({ label: "Combined OCP cardiovascular", tone: "var(--warn)" });
+  if (age > 35) gates.push({ label: "Combined OCP cardiovascular", tone: "var(--warn)" });
   return gates;
 }
 
@@ -40,8 +54,10 @@ const gateInk = (tone: string) => (tone === "var(--danger)" ? tone : "var(--ink-
 const PATIENT_GRID =
   "minmax(140px,1fr) 64px 96px minmax(120px,1fr) minmax(140px,1.2fr) minmax(160px,1.4fr)";
 
-const ageBand = (age: number) =>
-  age < 2 ? "Under 2" : age < 8 ? "2–7" : age < 18 ? "8–17" : age < 40 ? "18–39" : age < 65 ? "40–64" : "65+";
+const ageBand = (age: number | undefined) =>
+  age === undefined
+    ? "Age not recorded"
+    : age < 2 ? "Under 2" : age < 8 ? "2–7" : age < 18 ? "8–17" : age < 40 ? "18–39" : age < 65 ? "40–64" : "65+";
 
 /** First and last initial — the anchor the eye finds before it reads a name. */
 const initials = (name: string) => {
@@ -63,7 +79,10 @@ function riskOf(patient: Patient): "block" | "conflict" | null {
   return gates.length ? "conflict" : null;
 }
 
-const sexLabel = (patient: Patient) => `${patient.age}${patient.sex === "f" ? "F" : "M"}`;
+// "—" rather than a guess: the column is read as fact, and an invented 0M is
+// worse than a blank that sends somebody to the record.
+const sexLabel = (patient: Patient) =>
+  `${patient.age ?? "—"}${patient.sex ? patient.sex.toUpperCase() : "—"}`;
 
 type GroupBy = "prescriber" | "age" | "risk";
 
@@ -77,7 +96,7 @@ const laneOf = (patient: Patient, by: GroupBy) => {
 };
 
 /** Age and risk lanes have an inherent order; prescribers only have a caseload. */
-const AGE_LANE = ["Under 2", "2–7", "8–17", "18–39", "40–64", "65+"];
+const AGE_LANE = ["Under 2", "2–7", "8–17", "18–39", "40–64", "65+", "Age not recorded"];
 
 export function PatientsView({
   patients: seed,

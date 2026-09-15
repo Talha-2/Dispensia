@@ -4,6 +4,7 @@ import { getMedicines } from "@/lib/catalogue";
 import { RULES } from "@/lib/safety";
 import { getPatients, getRegister } from "@/lib/records";
 import { getStock } from "@/lib/stock";
+import { getTenant } from "@/lib/tenant";
 
 export const metadata = {
   title: "Counter · Dispensia",
@@ -18,10 +19,11 @@ export default async function DispensingPage({
   const initialLines = getMedicines((params.lines ?? "").split(",").filter(Boolean));
   const initialPatient = params.patient ?? "";
 
-  const [patients, { lines: stock }, register] = await Promise.all([
+  const [patients, { lines: stock }, register, tenant] = await Promise.all([
     getPatients(),
     getStock(),
     getRegister(),
+    getTenant(),
   ]);
 
   // The fast-mover shortcuts are this pharmacy's own deepest lines. They used to
@@ -72,6 +74,9 @@ export default async function DispensingPage({
         feed={feed}
         initialLines={initialLines}
         initialPatient={initialPatient}
+        pharmacist={tenant.signedInAs ?? "—"}
+        role={tenant.role}
+        canOverride={tenant.canOverride}
       />
     </Shell>
   );

@@ -75,8 +75,11 @@ export type LineItem = {
 export type Patient = {
   id: string;
   name: string;
-  age: number;
-  sex: "f" | "m";
+  /** Absent when the record does not carry it. Never defaulted: the rules that
+      key off age and sex are the ones that kill, and a guess either fires them
+      all or silences them all. */
+  age?: number;
+  sex?: "f" | "m";
   mrn: string;
   phone: string;
   prescriber: string;

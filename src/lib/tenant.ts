@@ -26,6 +26,11 @@ export type Tenant = {
   signedInAs: string | null;
   /** Their account address — what invitations are matched against. */
   signedInEmail: string | null;
+  /** Their role in this pharmacy, and whether it carries the authority to
+      clear a clinical finding. The counter used to gate an override behind a
+      shared PIN compiled into the browser bundle. */
+  role: string | null;
+  canOverride: boolean;
   /** True when the workspace is showing the shared demo tenant. */
   isDemo: boolean;
   /** True when the account has no organisation yet and should be onboarded. */
@@ -97,6 +102,10 @@ const demoTenant = (extra: Partial<Tenant> = {}): Tenant => ({
   currentBranch: demoBranches[0],
   signedInAs: null,
   signedInEmail: null,
+  // Nobody browsing without a membership carries clinical authority, so the
+  // fallback withholds it rather than defaulting to a role.
+  role: null,
+  canOverride: false,
   isDemo: true,
   needsOnboarding: false,
   memberships: [],
@@ -145,7 +154,7 @@ export async function getTenant(): Promise<Tenant> {
 
   const { data: profiles } = await supabase
     .from("staff_profiles")
-    .select("organization_id, branch_id, full_name")
+    .select("organization_id, branch_id, full_name, role")
     .eq("id", userId)
     .eq("organization_id", activeOrg ?? "00000000-0000-0000-0000-000000000000")
     .limit(1);
@@ -182,6 +191,8 @@ export async function getTenant(): Promise<Tenant> {
     currentBranch: current,
     signedInAs: profile.full_name?.trim() || displayName,
     signedInEmail: email,
+    role: (profile.role as string | null) ?? null,
+    canOverride: ["owner", "admin", "pharmacist"].includes(String(profile.role ?? "")),
     isDemo: Boolean((org as OrgRow).is_demo),
     needsOnboarding: false,
     memberships: (mine as Membership[] | null) ?? [],

@@ -7,10 +7,8 @@ import { Identity, Markers, SEVERITY_LABEL, SeverityMark, pkr } from "@/componen
 import { Receipt, makeReference, type Sale } from "@/components/receipt";
 import { Dialog, Toast } from "@/components/overlays";
 import { COMMANDS, MOD_LABEL, useCommand } from "@/lib/commands";
-import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { DEMOGRAPHIC_RULE_COUNT } from "@/lib/safety";
 import type { Finding, Medicine, Patient, ScanResult, Verdict } from "@/lib/types";
-
-const PHARMACIST_PIN = "5566";
 
 const VERDICT_COPY: Record<Verdict, { title: string; line: string }> = {
   unscanned: { title: "Nothing in the basket", line: "Add a product to start a dispense." },
@@ -29,6 +27,18 @@ const VERDICT_TONE: Record<Verdict, string | undefined> = {
 };
 
 type Line = { medicine: Medicine; qty: number };
+
+/**
+ * How many of each rank the basket is carrying, and what each rank costs you.
+ * "3 findings" is a number; "1 blocking, 2 to counsel" is the shape of the
+ * work, and it is the difference between reading the panel and scanning it.
+ */
+const SEVERITY_RANK: { severity: Finding["severity"]; label: string; tone: string }[] = [
+  { severity: "block", label: "blocking", tone: "var(--danger)" },
+  { severity: "conflict", label: "to resolve", tone: "var(--warn)" },
+  { severity: "counsel", label: "to counsel", tone: "var(--ink-2)" },
+  { severity: "note", label: "noted", tone: "var(--ink-1)" },
+];
 
 /** Shelf state for a product, mirrored from the catalogue's own derivation. */
 function shelfState(medicine: Medicine) {
@@ -78,6 +88,9 @@ export function Counter({
   feed = [],
   initialLines = [],
   initialPatient = "",
+  pharmacist = "—",
+  role = null,
+  canOverride = false,
 }: {
   patients: Patient[];
   starters?: Medicine[];
@@ -85,6 +98,12 @@ export function Counter({
   /** Seeded from the URL, so a basket under review can be linked and reopened. */
   initialLines?: Medicine[];
   initialPatient?: string;
+  /** Who is standing at this counter. Signs the receipt and any override. */
+  pharmacist?: string;
+  role?: string | null;
+  /** Whether that person's role carries the authority to clear a finding. The
+      server checks this again; here it decides what the screen offers. */
+  canOverride?: boolean;
 }) {
   const [lines, setLines] = useState<Line[]>(() =>
     initialLines.map((medicine) => ({ medicine, qty: 1 })),
@@ -214,6 +233,22 @@ export function Counter({
   const copy = VERDICT_COPY[verdict];
   const tone = VERDICT_TONE[verdict];
 
+  // Ranks with nothing in them are left out rather than shown as zero: a row of
+  // noughts is noise, and the panel is read under time pressure.
+  const tally = useMemo(
+    () =>
+      SEVERITY_RANK.map((rank) => ({
+        ...rank,
+        count: (result?.findings ?? []).filter((f) => f.severity === rank.severity).length,
+      })).filter((rank) => rank.count > 0),
+    [result],
+  );
+
+  const demographicRules = useMemo(
+    () => (result?.findings ?? []).filter((f) => f.demographic).length || DEMOGRAPHIC_RULE_COUNT,
+    [result],
+  );
+
   /* ── Checkout ────────────────────────────────────────────────────────────
      Closing a basket writes the sale, produces the bill, and clears the bench
      so the next customer starts clean. A blocked basket cannot get here. */
@@ -229,50 +264,47 @@ export function Counter({
       setToast(`Cash tendered is short by PKR ${(total - paid).toFixed(2)}.`);
       return;
     }
-    // Take the stock down and write the statutory entries in one
-    // transaction. A register that disagrees with the shelf is worse than
-    // either being missing: it is a document that says something untrue
-    // about a controlled drug.
-    const supabase = getSupabaseBrowserClient();
-    if (supabase) {
-      const { data, error } = await supabase.rpc("dispense_basket", {
-        p_lines: lines.map((line) => ({
-          catalogue_id: line.medicine.id,
-          qty: line.qty,
-          brand: line.medicine.short,
-          strength: line.medicine.strength ?? null,
-          molecule: line.medicine.molecule,
-          controlled: line.medicine.flags.includes("controlled"),
-        })),
-        p_patient: patient?.id ?? null,
-        p_patient_name: patient?.name ?? "Walk-in",
-        p_mrn: patient?.mrn ?? null,
-        p_overrides: cleared.length
+    // Closed through the server rather than by calling the database directly,
+    // so the basket is scanned a second time where the browser cannot reach it.
+    // The check above is what makes the screen honest; this one is what makes
+    // it a gate. Stock comes down and the statutory entries are written in one
+    // transaction: a register that disagrees with the shelf is worse than
+    // either being missing, because it is a document that says something
+    // untrue about a controlled drug.
+    const response = await fetch("/api/dispense", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        lines: lines.map((line) => ({ id: line.medicine.id, qty: line.qty })),
+        patientId: patient?.id ?? null,
+        cleared,
+        overrideReason: cleared.length
           ? cleared.map((key) => `${key}: ${overrides[key] ?? ""}`).join(" · ")
           : null,
-      });
+      }),
+    });
 
-      if (error) {
-        setToast(`Nothing was recorded — ${error.message}`);
-        return;
-      }
+    const closed = (await response.json().catch(() => null)) as {
+      error?: string;
+      register_entries?: number;
+      lines_not_in_stock?: number;
+    } | null;
 
-      const result = data as {
-        register_entries: number;
-        lines_not_in_stock: number;
-      } | null;
+    if (!response.ok) {
+      setToast(`Nothing was recorded — ${closed?.error ?? "the sale was refused."}`);
+      return;
+    }
 
-      if (result?.lines_not_in_stock) {
-        // Said out loud rather than swallowed: the shelf record is now known
-        // to be behind, and only a person can reconcile that.
-        setToast(
-          `${result.lines_not_in_stock} line${result.lines_not_in_stock === 1 ? " was" : "s were"} dispensed without a matching stock record. Receive them on the Stock screen.`,
-        );
-      } else if (result?.register_entries) {
-        setToast(
-          `${result.register_entries} controlled ${result.register_entries === 1 ? "entry" : "entries"} written to the register.`,
-        );
-      }
+    if (closed?.lines_not_in_stock) {
+      // Said out loud rather than swallowed: the shelf record is now known
+      // to be behind, and only a person can reconcile that.
+      setToast(
+        `${closed.lines_not_in_stock} line${closed.lines_not_in_stock === 1 ? " was" : "s were"} dispensed without a matching stock record. Receive them on the Stock screen.`,
+      );
+    } else if (closed?.register_entries) {
+      setToast(
+        `${closed.register_entries} controlled ${closed.register_entries === 1 ? "entry" : "entries"} written to the register.`,
+      );
     }
 
     const now = new Date();
@@ -281,7 +313,7 @@ export function Counter({
       at: now.toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" }),
       lines,
       patient,
-      pharmacist: "A. Yousaf",
+      pharmacist,
       subtotal,
       discount,
       total,
@@ -298,7 +330,7 @@ export function Counter({
     // The bench is deliberately left as it is. A receipt is the first time
     // anybody reads the sale back in full, and it is where a wrong quantity
     // or a missing line gets noticed — clearing here made that unfixable.
-  }, [lines, patient, subtotal, discount, total, cost, paid, cleared, overrides, blocked, result]);
+  }, [lines, patient, subtotal, discount, total, cost, paid, cleared, overrides, blocked, result, pharmacist]);
 
   /** Finish: the sale stands, and the bench is cleared for the next customer. */
   const closeSale = useCallback(() => {
@@ -389,8 +421,10 @@ export function Counter({
               ) : null}
             </>
           ) : (
+            // The consequence is stated once, on the verdict, where it
+            // qualifies the answer. Here it is only the prompt to act.
             <span className="t-data" data-depth="1">
-              Age and sex gates stay dark without a patient record — pick one to arm them.
+              Pick a patient to arm the age and sex gates.
             </span>
           )}
         </div>
@@ -704,6 +738,47 @@ export function Counter({
             <p className="t-prose mt-1.5 max-w-[54ch]" data-depth="2">
               {copy.line}
             </p>
+
+            {/* What the findings are made of. A pharmacist reading this panel
+                wants the shape of the work before the wording of it. */}
+            {tally.length ? (
+              <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+                {tally.map((rank) => (
+                  <span key={rank.severity} className="t-sm inline-flex items-baseline gap-1.5">
+                    <span className="t-num font-semibold" style={{ color: rank.tone }}>
+                      {rank.count}
+                    </span>
+                    <span data-depth="1">{rank.label}</span>
+                  </span>
+                ))}
+                {cleared.length ? (
+                  <span className="t-sm inline-flex items-baseline gap-1.5">
+                    <span className="t-num font-semibold" data-depth="2">
+                      {cleared.length}
+                    </span>
+                    <span data-depth="1">overridden</span>
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
+
+            {/* The gap that made the engine quieter than it looks. More than a
+                third of the rule book keys off age or sex, and with nobody
+                attached those rules cannot fire at all — so the basket reads
+                clear when it has simply not been asked the question. */}
+            {lines.length && !patient ? (
+              <p className="t-sm mt-2.5 max-w-[54ch]" data-depth="1">
+                No patient attached — the {demographicRules} age- and sex-dependent rules are not
+                being applied to this basket.
+              </p>
+            ) : null}
+
+            {lines.length && patient && (patient.age === undefined || !patient.sex) ? (
+              <p className="t-sm mt-2.5 max-w-[54ch]" data-depth="1">
+                {patient.name} has no {patient.age === undefined ? "age" : "sex"} on record, so the
+                rules that depend on it stayed dark. Add it on the patient record.
+              </p>
+            ) : null}
           </div>
 
           {/* Findings, ranked worst first. */}
@@ -713,6 +788,9 @@ export function Counter({
                 key={finding.key}
                 finding={finding}
                 lines={lines}
+                pharmacist={pharmacist}
+                role={role}
+                canOverride={canOverride}
                 overrideReason={overrides[finding.key]}
                 onOverride={(reason) => {
                   setCleared((current) => [...current, finding.key]);
@@ -998,21 +1076,32 @@ export function Counter({
 
 /**
  * A finding is a band, not a card. Its rank sets its weight, and clearing it
- * costs a PIN and a written reason — never a single dismissive click.
+ * costs a signature and a written reason — never a single dismissive click.
+ *
+ * It used to cost a PIN, which was a constant in this file: the same four
+ * digits for every pharmacy, readable by anyone who opened the bundle, and
+ * attached to nobody in particular. An override is a clinical act, so it is
+ * signed by the account making it and permitted by that account's role — and
+ * the server checks the same thing again before the sale is written.
  */
 function FindingBand({
   finding,
   lines,
+  pharmacist,
+  role,
+  canOverride,
   overrideReason,
   onOverride,
 }: {
   finding: Finding;
   lines: Line[];
+  pharmacist: string;
+  role: string | null;
+  canOverride: boolean;
   overrideReason?: string;
   onOverride: (reason: string) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [pin, setPin] = useState("");
   const [reason, setReason] = useState("");
   const [error, setError] = useState("");
 
@@ -1022,8 +1111,8 @@ function FindingBand({
 
   function submit(event: React.FormEvent) {
     event.preventDefault();
-    if (pin !== PHARMACIST_PIN) {
-      setError("That PIN does not match a registered pharmacist. The override was not recorded.");
+    if (!canOverride) {
+      setError("Your role cannot clear a clinical finding. The override was not recorded.");
       return;
     }
     if (reason.trim().length < 8) {
@@ -1061,50 +1150,61 @@ function FindingBand({
               {SEVERITY_LABEL[finding.severity]}
               {finding.demographic ? " · depends on patient age or sex" : ""}
             </span>
+            {/* The rule that fired, named. An override is read back months
+                later in an inspection, and "which rule was this" should not
+                have to be reconstructed from the wording. */}
+            <span className="t-xs t-code" data-depth="0" title="Rule key, as written to the audit log">
+              {finding.key}
+            </span>
             {!overrideReason ? (
               <button type="button" className="act ml-auto" onClick={() => setOpen((v) => !v)}>
-                {open ? "cancel" : "override"}
+                {/* A technician is not cancelling an override they cannot
+                    start; they are dismissing an explanation. */}
+                {open ? (canOverride ? "cancel" : "close") : "override"}
               </button>
             ) : null}
           </div>
 
           {open ? (
-            <form onSubmit={submit} className="mt-2">
-              <label className="block">
-                <span className="t-label">Pharmacist PIN</span>
-                <input
-                  type="password"
-                  value={pin}
-                  onChange={(event) => {
-                    setPin(event.target.value);
-                    setError("");
-                  }}
-                  className="field t-data t-num"
-                  autoComplete="off"
-                  inputMode="numeric"
-                />
-              </label>
-              <label className="mt-2 block">
-                <span className="t-label">Clinical reason</span>
-                <input
-                  value={reason}
-                  onChange={(event) => {
-                    setReason(event.target.value);
-                    setError("");
-                  }}
-                  placeholder="Prescriber contacted, dose adjusted, INR monitored…"
-                  className="field t-data"
-                />
-              </label>
-              {error ? (
-                <p className="t-data mt-1" style={{ color: "var(--danger)" }} role="alert">
-                  {error}
+            canOverride ? (
+              <form onSubmit={submit} className="mt-2">
+                {/* Signed, not unlocked. The account is already known, so the
+                    question is the reason — which is the part an inspector
+                    actually reads. */}
+                <p className="t-sm" data-depth="1">
+                  Overriding as <span data-depth="2">{pharmacist}</span>
+                  {role ? ` · ${role}` : ""}. This is written to the audit log and printed on the
+                  receipt.
                 </p>
-              ) : null}
-              <button type="submit" className="act act-danger mt-2">
-                Record override
-              </button>
-            </form>
+                <label className="mt-2 block">
+                  <span className="t-label">Clinical reason</span>
+                  <input
+                    value={reason}
+                    onChange={(event) => {
+                      setReason(event.target.value);
+                      setError("");
+                    }}
+                    placeholder="Prescriber contacted, dose adjusted, INR monitored…"
+                    className="field t-data"
+                    autoFocus
+                  />
+                </label>
+                {error ? (
+                  <p className="t-data mt-1" style={{ color: "var(--danger)" }} role="alert">
+                    {error}
+                  </p>
+                ) : null}
+                <button type="submit" className="act act-danger mt-2">
+                  Record override
+                </button>
+              </form>
+            ) : (
+              <p className="t-sm mt-2 max-w-[54ch]" data-depth="1" role="note">
+                Clearing a clinical finding is restricted to a pharmacist, an admin or the owner.
+                {role ? ` You are signed in as ${role}.` : ""} Ask one of them to review this basket
+                — they can sign the override without rebuilding it.
+              </p>
+            )
           ) : null}
         </div>
       </div>

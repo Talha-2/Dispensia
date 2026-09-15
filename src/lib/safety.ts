@@ -641,3 +641,17 @@ export const VERDICT_RANK: Record<Verdict, number> = {
   conflict: 3,
   blocked: 4,
 };
+
+/**
+ * How many rules cannot fire without a patient.
+ *
+ * Counted from the rule book rather than written down, so it cannot drift away
+ * from the truth as rules are added. The counter shows it when a basket is
+ * scanned with nobody attached, because a "clear" verdict reached without an
+ * age or a sex is a narrower claim than it looks.
+ */
+export const DEMOGRAPHIC_RULE_COUNT =
+  RULES.filter((rule) => rule.demographic).length +
+  // Plus the teratogen gate, which scan() raises outside the rule table and
+  // which asks the same question of a patient: sex, and age of childbearing.
+  1;

@@ -43,11 +43,14 @@ export async function getPatients(): Promise<Patient[]> {
     id: row.id as string,
     mrn: (row.medical_record_number as string) ?? "—",
     name: (row.full_name as string) ?? "Unnamed",
-    // Age and sex arm the paediatric, teratogen and reproductive-age gates. A
-    // record without them cannot fire those rules, so the defaults are chosen
-    // to be obviously wrong rather than plausibly right.
-    age: Number(row.age ?? 0),
-    sex: (row.sex as "f" | "m") ?? "m",
+    // Age and sex arm the paediatric, teratogen and reproductive-age gates, so
+    // a missing one stays missing. The defaults here used to be 0 and "m",
+    // which are not neutral in either direction: an age of 0 makes a newborn of
+    // every unrecorded adult and fires the paediatric rules on all of them,
+    // and a sex of "m" disarms the pregnancy gate silently — the basket comes
+    // back clear because the question was never asked.
+    age: row.age === null || row.age === undefined ? undefined : Number(row.age),
+    sex: (row.sex as "f" | "m" | null) ?? undefined,
     phone: (row.phone as string) ?? "—",
     prescriber: (row.prescriber as string) ?? "Unassigned",
     lastVisit: (row.last_visit as string) ?? "—",

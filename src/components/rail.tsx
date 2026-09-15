@@ -24,8 +24,9 @@ import { OrgSwitcher, type Membership } from "@/components/switchers";
 export type RailCounts = {
   reorder: number;
   expiring: number;
-  reserve: number;
+  /** Controlled lines this branch actually holds — not how many exist. */
   controlled: number;
+  outOfStock: number;
   stocked: number;
   total: number;
 };
@@ -213,8 +214,8 @@ export function Rail({
               {[
                 { label: "Needs reorder", value: counts.reorder, tone: counts.reorder ? "var(--warn)" : undefined, href: "/inventory" },
                 { label: "Expiring 90d", value: counts.expiring, tone: counts.expiring ? "var(--warn)" : undefined, href: "/inventory" },
-                { label: "Reserve antibiotics", value: counts.reserve, href: "/catalogue?aware=RESERVE" },
-                { label: "Controlled lines", value: counts.controlled, href: "/register" },
+                { label: "Controlled held", value: counts.controlled, href: "/register" },
+                { label: "Out of stock", value: counts.outOfStock, tone: counts.outOfStock ? "var(--danger)" : undefined, href: "/inventory" },
               ].map((row) => (
                 <Link
                   key={row.label}

@@ -16,11 +16,21 @@ export default async function SettingsPage() {
 
   // The real roster, read from the database rather than invented. Without it
   // the Members screen could show a team but never change one.
+  //
+  // Scoped to this organisation by hand, because a membership row is readable
+  // either as a colleague's or as your own — the second clause is what lets you
+  // discover the organisations you belong to before one is active, and left
+  // unfiltered it listed you twice: once here, once for the other pharmacy.
   const supabase = await getSupabaseServerClient();
+  const { data: activeOrg } = supabase
+    ? await supabase.rpc("current_organization_id")
+    : { data: null };
+
   const { data: staff } = supabase
     ? await supabase
         .from("staff_profiles")
         .select("id, full_name, email, role, branch_id, active, created_at")
+        .eq("organization_id", activeOrg ?? "00000000-0000-0000-0000-000000000000")
         .order("created_at")
     : { data: null };
 
