@@ -94,7 +94,7 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
       return;
     }
 
-    router.push("/dashboard");
+    router.push("/dispensing");
     router.refresh();
   }
 

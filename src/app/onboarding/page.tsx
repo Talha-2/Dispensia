@@ -68,7 +68,7 @@ export default function OnboardingPage() {
       return;
     }
 
-    router.push("/dashboard");
+    router.push("/dispensing");
     router.refresh();
   }
 
@@ -107,7 +107,7 @@ export default function OnboardingPage() {
       return;
     }
 
-    router.push("/dashboard");
+    router.push("/dispensing");
     router.refresh();
   }
 
@@ -197,7 +197,7 @@ export default function OnboardingPage() {
               <LogIn size={16} strokeWidth={1.8} />
               {joining ? "Joining…" : "Join the organisation"}
             </button>
-            <a href="/dashboard" className="act act-lg">
+            <a href="/dispensing" className="act act-lg">
               Look around the demo
             </a>
           </div>
@@ -285,7 +285,7 @@ export default function OnboardingPage() {
             <Building2 size={16} strokeWidth={1.8} />
             {busy ? "Creating…" : "Create organisation"}
           </button>
-          <a href="/dashboard" className="act act-lg">
+          <a href="/dispensing" className="act act-lg">
             Look around the demo
           </a>
         </div>
