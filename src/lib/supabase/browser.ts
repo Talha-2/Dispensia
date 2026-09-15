@@ -3,9 +3,19 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseConfig } from "./config";
 
+/**
+ * Clerk's default session token carries neither `role` nor `email`, and the
+ * instance API silently ignores attempts to add them. This named template does
+ * carry both: `role: authenticated` is what stops Postgres treating every
+ * request as anonymous, and `email` is what invitations are matched against.
+ */
+const SUPABASE_TEMPLATE = "supabase";
+
 declare global {
   interface Window {
-    Clerk?: { session?: { getToken: () => Promise<string | null> } | null };
+    Clerk?: {
+      session?: { getToken: (options?: { template?: string }) => Promise<string | null> } | null;
+    };
   }
 }
 
@@ -37,7 +47,7 @@ export function getSupabaseBrowserClient() {
     accessToken: async () => {
       if (typeof window === "undefined") return null;
       try {
-        return (await window.Clerk?.session?.getToken()) ?? null;
+        return (await window.Clerk?.session?.getToken({ template: SUPABASE_TEMPLATE })) ?? null;
       } catch {
         return null;
       }

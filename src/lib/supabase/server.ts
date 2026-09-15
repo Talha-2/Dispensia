@@ -2,6 +2,9 @@ import { auth } from "@clerk/nextjs/server";
 import { createClient } from "@supabase/supabase-js";
 import { getSupabaseConfig } from "./config";
 
+/** Carries `role: authenticated` and `email`; the default session token does not. */
+const SUPABASE_TEMPLATE = "supabase";
+
 /**
  * The server's Supabase client, authenticated by Clerk.
  *
@@ -23,7 +26,7 @@ export async function getSupabaseServerClient() {
   return createClient(config.url, config.anonKey, {
     accessToken: async () => {
       try {
-        return await getToken();
+        return await getToken({ template: SUPABASE_TEMPLATE });
       } catch {
         return null;
       }
