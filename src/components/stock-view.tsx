@@ -2,12 +2,13 @@
 
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, ChevronRight, Download, Search as SearchIcon, Upload, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, PackagePlus, Search as SearchIcon, Upload, X } from "lucide-react";
 import { Empty, Identity, Markers, Meter, pkr } from "@/components/primitives";
 import { Dialog, Toast } from "@/components/overlays";
 import { COMMANDS, useCommand } from "@/lib/commands";
 import { exportCsv, parseCsv, stamp } from "@/lib/csv";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { ReceiveLineDialog } from "@/components/receive-line";
 import type { Branch } from "@/data/organisation";
 import type { FlagMeta, Medicine, StockState } from "@/lib/types";
 
@@ -66,6 +67,7 @@ export function StockView({
   const [lens, setLens] = useState<Lens>("all");
   const [page, setPage] = useState(0);
   const [importOpen, setImportOpen] = useState(false);
+  const [receiveOpen, setReceiveOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
   const branchName = useMemo(
@@ -169,9 +171,14 @@ export function StockView({
           Export
         </button>
 
-        <button type="button" className="act act-primary shrink-0" onClick={() => setImportOpen(true)}>
+        <button type="button" className="act shrink-0" onClick={() => setImportOpen(true)}>
           <Upload size={15} strokeWidth={1.8} />
-          Import stock
+          Import CSV
+        </button>
+
+        <button type="button" className="act act-primary shrink-0" onClick={() => setReceiveOpen(true)}>
+          <PackagePlus size={15} strokeWidth={1.8} />
+          Receive stock
         </button>
       </div>
 
@@ -180,10 +187,16 @@ export function StockView({
           title={`${organisation} holds no stock yet`}
           hint="Stock is your organisation's own record — quantities, batches, expiry dates and what you paid. Import a CSV to receive your first delivery; the catalogue stays available for looking products up in the meantime."
           action={
-            <button type="button" className="act act-primary act-lg" onClick={() => setImportOpen(true)}>
-              <Upload size={16} strokeWidth={1.8} />
-              Import stock from CSV
-            </button>
+            <span className="flex flex-wrap items-center justify-center gap-3">
+              <button type="button" className="act act-primary act-lg" onClick={() => setReceiveOpen(true)}>
+                <PackagePlus size={16} strokeWidth={1.8} />
+                Receive your first line
+              </button>
+              <button type="button" className="act act-lg" onClick={() => setImportOpen(true)}>
+                <Upload size={16} strokeWidth={1.8} />
+                Import a CSV
+              </button>
+            </span>
           }
         />
       ) : filtered.length === 0 ? (
@@ -321,6 +334,16 @@ export function StockView({
           </div>
         </div>
       )}
+
+      <ReceiveLineDialog
+        open={receiveOpen}
+        branches={branches}
+        onClose={() => setReceiveOpen(false)}
+        onDone={(message) => {
+          setReceiveOpen(false);
+          setToast(message);
+        }}
+      />
 
       <ImportStockDialog
         open={importOpen}

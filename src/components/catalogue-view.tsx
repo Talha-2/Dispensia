@@ -11,7 +11,6 @@ import {
   ChevronsRight,
   Download,
   MoreHorizontal,
-  PackagePlus,
   Search as SearchIcon,
   Upload,
   X,
@@ -19,7 +18,7 @@ import {
 import { EMPTY_FILTERS, type FacetSet, type Filters } from "@/components/filter-rail";
 import { FilterChips, FilterPopover } from "@/components/filter-popover";
 import { ProductPanel } from "@/components/product-panel";
-import { Empty, Identity, Markers, pkr } from "@/components/primitives";
+import { Empty, Markers, pkr } from "@/components/primitives";
 import { Dialog, Menu, Toast } from "@/components/overlays";
 import { COMMANDS, useCommand } from "@/lib/commands";
 import { exportCsv, parseCsv, stamp } from "@/lib/csv";
@@ -206,7 +205,6 @@ export function CatalogueView({
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [importOpen, setImportOpen] = useState(false);
-  const [stockOpen, setStockOpen] = useState(false);
 
   const doExport = useCallback(async () => {
     if (busy) return;
@@ -228,7 +226,7 @@ export function CatalogueView({
       } while (page <= pages && rows.length < CAP);
 
       const count = exportCsv(`dispensia-${title.toLowerCase()}-${stamp()}`, rows, [
-        { header: "Product ID", value: (m) => m.id },
+        { header: "Catalogue ID", value: (m) => m.id },
         { header: "Brand", value: (m) => m.brand },
         { header: "Generic", value: (m) => m.generic },
         { header: "Molecule", value: (m) => m.molecule },
@@ -242,11 +240,14 @@ export function CatalogueView({
         { header: "AWaRe", value: (m) => m.aware },
         { header: "QT risk", value: (m) => m.qt ?? "" },
         { header: "Clinical flags", value: (m) => m.flags.join(" | ") },
-        { header: "On hand", value: (m) => m.stock?.onHand ?? "" },
-        { header: "Reorder level", value: (m) => m.stock?.reorder ?? "" },
-        { header: "Batch", value: (m) => m.stock?.batch ?? "" },
-        { header: "Expiry", value: (m) => m.stock?.expiry ?? "" },
-        { header: "Shelf", value: (m) => m.stock?.shelf ?? "" },
+        // Blank, for you to fill before importing on the Stock screen. They
+        // used to carry the catalogue file's synthetic stock, which belonged to
+        // no pharmacy and would have been imported as if it were yours.
+        { header: "Quantity", value: () => "" },
+        { header: "Reorder", value: () => "" },
+        { header: "Batch", value: () => "" },
+        { header: "Expiry", value: () => "" },
+        { header: "Shelf", value: () => "" },
       ]);
 
       setToast(
@@ -376,7 +377,7 @@ export function CatalogueView({
               { label: "Export to CSV", hint: "Ctrl E", icon: <Download size={15} strokeWidth={1.8} />, onSelect: doExport, disabled: busy },
               { label: "Import stock", hint: "Ctrl I", icon: <Upload size={15} strokeWidth={1.8} />, onSelect: () => setImportOpen(true) },
               { separator: true },
-              { label: "Add a stock line", icon: <PackagePlus size={15} strokeWidth={1.8} />, onSelect: () => setStockOpen(true) },
+
             ]}
           />
         </div>
@@ -537,261 +538,11 @@ export function CatalogueView({
       ) : null}
 
       <ImportDialog open={importOpen} onClose={() => setImportOpen(false)} onDone={setToast} />
-      <AddStockDialog open={stockOpen} onClose={() => setStockOpen(false)} onDone={setToast} />
       <Toast message={toast} onDone={() => setToast(null)} />
     </div>
   );
 }
 
-/* ═══ Add a stock line ═════════════════════════════════════════════════════
-   Receiving stock against a real catalogue product: the product is chosen from
-   the catalogue rather than typed, so a batch can never be booked against a
-   name that does not exist. */
-
-function AddStockDialog({
-  open,
-  onClose,
-  onDone,
-}: {
-  open: boolean;
-  onClose: () => void;
-  onDone: (message: string) => void;
-}) {
-  const [term, setTerm] = useState("");
-  const [hits, setHits] = useState<Medicine[]>([]);
-  const [chosen, setChosen] = useState<Medicine | null>(null);
-  const [qty, setQty] = useState("");
-  const [reorder, setReorder] = useState("");
-  const [batch, setBatch] = useState("");
-  const [expiry, setExpiry] = useState("");
-  const [shelf, setShelf] = useState("");
-  const [cost, setCost] = useState("");
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    const q = term.trim();
-    if (q.length < 2 || chosen) return;
-    const controller = new AbortController();
-    const timer = window.setTimeout(() => {
-      fetch(`/api/suggest?q=${encodeURIComponent(q)}&limit=6`, { signal: controller.signal })
-        .then((response) => response.json())
-        .then((data: { items: Medicine[] }) => setHits(data.items))
-        .catch(() => undefined);
-    }, 120);
-    return () => {
-      controller.abort();
-      window.clearTimeout(timer);
-    };
-  }, [term, chosen]);
-
-  function reset() {
-    setTerm("");
-    setHits([]);
-    setChosen(null);
-    setQty("");
-    setReorder("");
-    setBatch("");
-    setExpiry("");
-    setShelf("");
-    setCost("");
-    setError("");
-  }
-
-  function submit(event: React.FormEvent) {
-    event.preventDefault();
-    if (!chosen) return setError("Choose the product this batch is for.");
-    const quantity = Number(qty);
-    if (!Number.isFinite(quantity) || quantity <= 0) return setError("Enter the quantity received.");
-    if (!batch.trim()) return setError("A batch number is required to book stock in.");
-    if (!expiry) return setError("An expiry date is required.");
-    if (new Date(expiry) <= new Date("2026-09-14")) {
-      return setError("That expiry date has already passed — expired stock cannot be received.");
-    }
-
-    onDone(
-      `${quantity} units of ${chosen.short} booked in on batch ${batch.trim().toUpperCase()}. Connect Supabase to persist it.`,
-    );
-    reset();
-    onClose();
-  }
-
-  return (
-    <Dialog
-      open={open}
-      onClose={() => {
-        reset();
-        onClose();
-      }}
-      title="Add a stock line"
-      description="Receive a batch against a product that already exists in the catalogue."
-      width={560}
-      footer={
-        <>
-          <button
-            type="button"
-            className="act"
-            onClick={() => {
-              reset();
-              onClose();
-            }}
-          >
-            Cancel
-          </button>
-          <button type="submit" form="add-stock" className="act act-primary">
-            <PackagePlus size={15} strokeWidth={1.8} />
-            Book in
-          </button>
-        </>
-      }
-    >
-      <form id="add-stock" onSubmit={submit}>
-        <label className="block">
-          <span className="t-label">
-            Product <span style={{ color: "var(--danger)" }}>*</span>
-          </span>
-          {chosen ? (
-            <span className="panel-flat mt-1.5 flex items-center gap-3 p-2.5">
-              <span className="min-w-0 flex-1">
-                <Identity medicine={chosen} depth={3} />
-              </span>
-              <Markers medicine={chosen} />
-              <button
-                type="button"
-                className="act act-quiet act-sm act-icon shrink-0"
-                aria-label="Choose a different product"
-                onClick={() => {
-                  setChosen(null);
-                  setTerm("");
-                }}
-              >
-                <X size={14} strokeWidth={1.9} />
-              </button>
-            </span>
-          ) : (
-            <span className="relative mt-1.5 block">
-              <span className="field-shell">
-                <SearchIcon size={15} strokeWidth={1.8} className="shrink-0" style={{ color: "var(--ink-3)" }} />
-                <input
-                  value={term}
-                  onChange={(event) => {
-                    setTerm(event.target.value);
-                    setError("");
-                  }}
-                  placeholder="Search the catalogue by brand or molecule"
-                  className="t-data"
-                  autoComplete="off"
-                  spellCheck={false}
-                />
-              </span>
-              {hits.length && term.trim().length >= 2 ? (
-                <span className="panel absolute left-0 right-0 top-10 z-10 block max-h-[220px] overflow-y-auto py-1">
-                  {hits.map((medicine) => (
-                    <button
-                      key={medicine.id}
-                      type="button"
-                      className="pop-item"
-                      style={{ height: 46 }}
-                      onClick={() => {
-                        setChosen(medicine);
-                        setCost(medicine.cost.toFixed(2));
-                        setHits([]);
-                      }}
-                    >
-                      <span className="min-w-0 flex-1">
-                        <Identity medicine={medicine} depth={3} />
-                      </span>
-                      <Markers medicine={medicine} />
-                    </button>
-                  ))}
-                </span>
-              ) : null}
-            </span>
-          )}
-        </label>
-
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <label className="block">
-            <span className="t-label">
-              Quantity received <span style={{ color: "var(--danger)" }}>*</span>
-            </span>
-            <input
-              value={qty}
-              onChange={(e) => setQty(e.target.value)}
-              className="field mt-1.5"
-              inputMode="numeric"
-              autoComplete="off"
-            />
-          </label>
-
-          <label className="block">
-            <span className="t-label">Reorder level</span>
-            <input
-              value={reorder}
-              onChange={(e) => setReorder(e.target.value)}
-              className="field mt-1.5"
-              inputMode="numeric"
-              autoComplete="off"
-              placeholder="When to reorder"
-            />
-          </label>
-
-          <label className="block">
-            <span className="t-label">
-              Batch number <span style={{ color: "var(--danger)" }}>*</span>
-            </span>
-            <input
-              value={batch}
-              onChange={(e) => setBatch(e.target.value)}
-              className="field t-code mt-1.5"
-              autoComplete="off"
-              placeholder="AZI-2212"
-            />
-          </label>
-
-          <label className="block">
-            <span className="t-label">
-              Expiry <span style={{ color: "var(--danger)" }}>*</span>
-            </span>
-            <input
-              type="date"
-              value={expiry}
-              onChange={(e) => setExpiry(e.target.value)}
-              className="field mt-1.5"
-            />
-          </label>
-
-          <label className="block">
-            <span className="t-label">Shelf location</span>
-            <input
-              value={shelf}
-              onChange={(e) => setShelf(e.target.value)}
-              className="field mt-1.5"
-              autoComplete="off"
-              placeholder="A4 or Cold room"
-            />
-          </label>
-
-          <label className="block">
-            <span className="t-label">Unit cost (PKR)</span>
-            <input
-              value={cost}
-              onChange={(e) => setCost(e.target.value)}
-              className="field mt-1.5"
-              inputMode="decimal"
-              autoComplete="off"
-            />
-          </label>
-        </div>
-
-        {error ? (
-          <p className="band t-sm mt-4" data-sev="block" role="alert" style={{ color: "var(--danger)" }}>
-            {error}
-          </p>
-        ) : null}
-      </form>
-    </Dialog>
-  );
-}
 
 /* ═══ Import ═══════════════════════════════════════════════════════════════
    A validating importer. Every row is matched against the real catalogue before
