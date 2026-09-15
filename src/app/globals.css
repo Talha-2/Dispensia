@@ -1134,7 +1134,9 @@ input:focus-visible + .switch { outline: 2px solid var(--primary); outline-offse
 #print-area { display: none; }
 
 @media print {
-  @page { margin: 6mm; }
+  /* A5 portrait: what a counter printer is loaded with here, and what the
+     receipt was laid out against. Chrome preselects it from this. */
+  @page { size: A5 portrait; margin: 8mm; }
 
   html, body {
     background: #fff !important;
@@ -1142,29 +1144,52 @@ input:focus-visible + .switch { outline: 2px solid var(--primary); outline-offse
     overflow: visible !important;
   }
 
-  /* Everything that is not the receipt. */
-  body > *:not(#print-area),
+  /* Chrome that never prints, removed outright so it reserves no page. */
   .no-print,
   header,
   nav,
   aside,
   [data-slot="dialog-overlay"],
   [data-slot="dialog-content"],
-  [data-slot="dialog-portal"],
   [data-sonner-toaster] {
     display: none !important;
   }
 
+  /* Everything else is laid out but unpainted, rather than removed. Removing it
+     by display:none only works while #print-area is a direct child of <body>;
+     the moment it is nested, hiding its ancestor hides the receipt too and the
+     printer gets a blank page. Visibility does not inherit that problem. */
+  body * {
+    visibility: hidden !important;
+  }
+
+  #print-area,
+  #print-area * {
+    visibility: visible !important;
+  }
+
+  /* Lifted to the page origin so it prints first, whatever it was nested in. */
   #print-area {
     display: block !important;
-    position: static !important;
-    width: 100% !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: auto !important;
     max-width: 78mm;
     margin: 0 auto !important;
     padding: 0 !important;
     background: #fff !important;
     box-shadow: none !important;
     animation: none !important;
+  }
+
+  /* The app shell is a full-height box. Left at its size it would push blank
+     pages out after the receipt, so it collapses. */
+  body > *:not(#print-area) {
+    height: 0 !important;
+    max-height: 0 !important;
+    overflow: hidden !important;
   }
 
   /* Ink, not screen tints: a thermal roll has one colour and the receipt has to
@@ -1177,7 +1202,12 @@ input:focus-visible + .switch { outline: 2px solid var(--primary); outline-offse
     overflow: visible !important;
   }
 
-  #print-area svg { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  #print-area svg,
+  #print-area svg * {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+    visibility: visible !important;
+  }
 }
 
 

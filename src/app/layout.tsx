@@ -1,9 +1,11 @@
 import { ClerkProvider } from "@clerk/nextjs";
 import { shadcn } from "@clerk/ui/themes";
+import { Suspense } from "react";
 import type { Metadata, Viewport } from "next";
 import { Geist_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { TenantProvider } from "@/components/tenant";
+import { RouteProgress } from "@/components/route-progress";
 import { getTenant } from "@/lib/tenant";
 import "./globals.css";
 
@@ -53,6 +55,11 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
             the rest of this system does — so its forms are in this product's
             colours rather than Clerk's defaults. */}
         <ClerkProvider appearance={{ theme: shadcn }}>
+          {/* Above the header, because a page that is still arriving should say
+              so before anything else on screen does. */}
+          <Suspense fallback={null}>
+            <RouteProgress />
+          </Suspense>
           {/*
           THESIS: The safety verdict is the product. A clinical workspace where the
           engine's judgement on the basket is the most prominent thing on screen, and

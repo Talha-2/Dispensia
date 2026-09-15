@@ -1,3 +1,5 @@
+import { useId } from "react";
+
 /**
  * The mark: a medical cross whose vertical arm is drawn as a capsule, with the
  * capsule's seam showing. Reads as healthcare at a glance and as dispensing on
@@ -5,6 +7,13 @@
  * 16px in a nav rail up to a sign-in page.
  */
 export function Mark({ size = 24, className = "" }: { size?: number; className?: string }) {
+  // A gradient id has to be unique per instance. Every Mark used to declare
+  // `sd-mark`, so a second copy on the page resolved `url(#sd-mark)` to the
+  // first definition in document order — and when that first copy sat inside a
+  // hidden element, as the on-screen receipt does while the printed one is
+  // rendering, the gradient did not paint and the logo came out blank.
+  const gradient = useId();
+
   return (
     <svg
       width={size}
@@ -15,12 +24,12 @@ export function Mark({ size = 24, className = "" }: { size?: number; className?:
       className={className}
     >
       <defs>
-        <linearGradient id="sd-mark" x1="0" y1="0" x2="0" y2="24" gradientUnits="userSpaceOnUse">
+        <linearGradient id={gradient} x1="0" y1="0" x2="0" y2="24" gradientUnits="userSpaceOnUse">
           <stop stopColor="var(--primary)" />
           <stop offset="1" stopColor="var(--primary-deep)" />
         </linearGradient>
       </defs>
-      <rect width="24" height="24" rx="7" fill="url(#sd-mark)" />
+      <rect width="24" height="24" rx="7" fill={`url(#${gradient})`} />
       <rect width="24" height="24" rx="7" fill="none" stroke="rgb(255 255 255 / 0.22)" />
       {/* horizontal arm */}
       <rect x="4" y="10" width="16" height="4" rx="2" fill="var(--on-primary)" opacity="0.75" />

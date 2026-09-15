@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Printer, Search, Trash2, X } from "lucide-react";
 import { Identity, Markers, SEVERITY_LABEL, SeverityMark, pkr } from "@/components/primitives";
 import { Receipt, makeReference, type Sale } from "@/components/receipt";
@@ -977,11 +978,18 @@ export function Counter({
       {/* What the printer gets. Hidden on screen, and the only thing left
           visible on paper — printing the dialog printed its header, its close
           button and a scroll box that repeated across pages. */}
-      {sale ? (
-        <div id="print-area" aria-hidden="true">
-          <Receipt sale={sale} />
-        </div>
-      ) : null}
+      {/* Portalled to <body>, not merely rendered here. The print rules hide
+          every top-level element that is not #print-area, and this used to sit
+          inside the counter — so hiding its ancestor hid the receipt with it
+          and printed a blank page. */}
+      {sale && typeof document !== "undefined"
+        ? createPortal(
+            <div id="print-area" aria-hidden="true">
+              <Receipt sale={sale} />
+            </div>,
+            document.body,
+          )
+        : null}
 
       <Toast message={toast} onDone={() => setToast(null)} />
     </div>

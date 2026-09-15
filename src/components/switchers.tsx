@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Building2, Check, ChevronsUpDown, FlaskConical, MapPin, Plus } from "lucide-react";
 import { Menu, type MenuEntry } from "@/components/overlays";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { endRouteProgress, startRouteProgress } from "@/lib/route-progress";
 import type { Branch } from "@/data/organisation";
 
 export type Membership = {
@@ -57,8 +58,10 @@ export function OrgSwitcher({
     const supabase = getSupabaseBrowserClient();
     if (!supabase || busy) return;
     setBusy(true);
+    startRouteProgress();
     const { error } = await supabase.rpc("switch_organization", { target: id });
     setBusy(false);
+    if (error) endRouteProgress();
     if (!error) {
       router.push("/dispensing");
       router.refresh();
@@ -69,9 +72,11 @@ export function OrgSwitcher({
     const supabase = getSupabaseBrowserClient();
     if (!supabase || busy) return;
     setBusy(true);
+    startRouteProgress();
     const { error } = await supabase.rpc("join_demo");
     if (error) {
       setBusy(false);
+      endRouteProgress();
       return;
     }
 
@@ -165,9 +170,16 @@ export function BranchSwitcher({
     const supabase = getSupabaseBrowserClient();
     if (!supabase || busy) return;
     setBusy(true);
+    startRouteProgress();
     const { error } = await supabase.rpc("switch_branch", { target: id });
     setBusy(false);
-    if (!error) router.refresh();
+    if (error) {
+      endRouteProgress();
+      return;
+    }
+    router.refresh();
+    // refresh() re-renders in place, so no route commits to end the bar.
+    window.setTimeout(endRouteProgress, 900);
   }
 
   if (branches.length < 2) {
