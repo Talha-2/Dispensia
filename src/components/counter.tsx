@@ -247,12 +247,23 @@ export function Counter({
         text: entry.text,
       })),
     });
+    // The bench is deliberately left as it is. A receipt is the first time
+    // anybody reads the sale back in full, and it is where a wrong quantity
+    // or a missing line gets noticed — clearing here made that unfixable.
+  }, [lines, patient, subtotal, discount, total, cost, paid, cleared, overrides, blocked, result]);
+
+  /** Finish: the sale stands, and the bench is cleared for the next customer. */
+  const closeSale = useCallback(() => {
+    setSale(null);
     setLines([]);
     setCleared([]);
     setOverrides({});
     setDiscountPct("");
     setTendered("");
-  }, [lines, patient, subtotal, discount, total, cost, paid, cleared, overrides, blocked, result]);
+  }, []);
+
+  /** Back out: the receipt is discarded and the basket is exactly as it was. */
+  const reopenBasket = useCallback(() => setSale(null), []);
 
   useCommand(COMMANDS.checkout, checkout);
   useCommand(
@@ -888,14 +899,21 @@ export function Counter({
       {/* ═══ The bill ════════════════════════════════════════════════════ */}
       <Dialog
         open={Boolean(sale)}
-        onClose={() => setSale(null)}
+        onClose={reopenBasket}
         title="Dispense recorded"
-        description={sale ? `${sale.reference} · the basket is closed and the bench is clear.` : undefined}
+        description={
+          sale
+            ? `${sale.reference} · the basket is still on the bench until you finish.`
+            : undefined
+        }
         width={460}
         printable
         footer={
           <>
-            <button type="button" className="act" onClick={() => setSale(null)}>
+            <button type="button" className="act" onClick={reopenBasket}>
+              Edit the basket
+            </button>
+            <button type="button" className="act" onClick={closeSale}>
               Done
             </button>
             <button type="button" className="act act-primary" onClick={() => window.print()}>
@@ -908,6 +926,15 @@ export function Counter({
       >
         {sale ? <Receipt sale={sale} /> : null}
       </Dialog>
+
+      {/* What the printer gets. Hidden on screen, and the only thing left
+          visible on paper — printing the dialog printed its header, its close
+          button and a scroll box that repeated across pages. */}
+      {sale ? (
+        <div id="print-area" aria-hidden="true">
+          <Receipt sale={sale} />
+        </div>
+      ) : null}
 
       <Toast message={toast} onDone={() => setToast(null)} />
     </div>

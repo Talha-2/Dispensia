@@ -1121,43 +1121,65 @@ input:focus-visible + .switch { outline: 2px solid var(--primary); outline-offse
    A receipt is a real deliverable. Everything that is not the receipt is
    removed, and the receipt itself is set for an 80mm roll. */
 
+/* ═══ Print ════════════════════════════════════════════════════════════════
+   A receipt is a real deliverable, and printing it was printing the dialog it
+   happens to be shown in — header, close button, scrollable body and all,
+   repeated across pages because a position:fixed box does not paginate.
+
+   So the thing that prints is not the dialog. #print-area holds its own copy of
+   the receipt, hidden on screen and the only visible element on paper. The
+   dialog, the overlay and the rest of the app are removed outright rather than
+   merely made invisible, because a hidden element still reserves its page. */
+
+#print-area { display: none; }
+
 @media print {
-  @page { margin: 8mm; }
+  @page { margin: 6mm; }
 
-  body { background: #fff; }
-
-  .no-print,
-  aside,
-  header,
-  nav { display: none !important; }
-
-  .print-only { display: block !important; }
-
-  .print-root {
-    position: static !important;
-    inset: auto !important;
-    display: block !important;
-    padding: 0 !important;
+  html, body {
     background: #fff !important;
-    backdrop-filter: none !important;
+    height: auto !important;
     overflow: visible !important;
   }
 
-  .print-sheet {
-    width: 100% !important;
-    max-width: 78mm !important;
-    margin: 0 !important;
-    border: 0 !important;
-    border-radius: 0 !important;
-    box-shadow: none !important;
-    animation: none !important;
-    color: var(--ink);
+  /* Everything that is not the receipt. */
+  body > *:not(#print-area),
+  .no-print,
+  header,
+  nav,
+  aside,
+  [data-slot="dialog-overlay"],
+  [data-slot="dialog-content"],
+  [data-slot="dialog-portal"],
+  [data-sonner-toaster] {
+    display: none !important;
   }
 
-  .print-sheet * { color: var(--ink) !important; }
+  #print-area {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    max-width: 78mm;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    background: #fff !important;
+    box-shadow: none !important;
+    animation: none !important;
+  }
+
+  /* Ink, not screen tints: a thermal roll has one colour and the receipt has to
+     survive being printed in it. */
+  #print-area * {
+    color: #000 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  #print-area svg { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
 }
 
-.print-only { display: none; }
 
 @theme inline {
   --font-heading: var(--font-sans);

@@ -21,6 +21,7 @@ import { DemoReset } from "@/components/demo-reset";
 import { AccountCard } from "@/components/account-card";
 import type { Branch, Member, Organisation, Role } from "@/data/organisation";
 import { SHORTCUTS } from "@/lib/shortcuts";
+import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 type Tab = "account" | "organisation" | "branches" | "members" | "roles" | "clinical" | "keyboard";
 
@@ -64,6 +65,39 @@ export function SettingsView({
   const [inviteOpen, setInviteOpen] = useState(false);
   const [branchOpen, setBranchOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [roleFor, setRoleFor] = useState<Member | null>(null);
+
+  /**
+   * Every member action is the same write: patch one staff_profiles row.
+   * Row-level security scopes it to this organisation, so the id never has
+   * to be trusted, and a refused write comes back as zero rows rather than
+   * an error — which is why an empty result is treated as a failure.
+   */
+  async function patchMember(member: Member, patch: Record<string, unknown>, done: string) {
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) {
+      setToast('Supabase is not configured, so this cannot be saved.');
+      return false;
+    }
+
+    const { data, error } = await supabase
+      .from('staff_profiles')
+      .update(patch)
+      .eq('id', member.id)
+      .select('id');
+
+    if (error) {
+      setToast(error.message);
+      return false;
+    }
+    if (!data?.length) {
+      setToast('That change was refused — your role may not permit it.');
+      return false;
+    }
+
+    setToast(done);
+    return true;
+  }
 
   const roleName = useMemo(
     () => new Map(roles.map((role) => [role.id, role.name])),
@@ -291,24 +325,50 @@ export function SettingsView({
                   buttonClass="act act-quiet act-sm act-icon shrink-0"
                   trigger={<MoreHorizontal size={16} strokeWidth={1.9} />}
                   items={[
-                    { label: "Change role", onSelect: () => setToast(`Role changes need the backend connected.`) },
-                    { label: "Move to another branch", onSelect: () => setToast(`Branch moves need the backend connected.`) },
+                    { label: "Change role", onSelect: () => setRoleFor(member) },
+                    ...branches
+                      .filter((branch) => branch.id !== member.branchId)
+                      .map((branch) => ({
+                        label: `Move to ${branch.name}`,
+                        onSelect: async () => {
+                          const ok = await patchMember(
+                            member,
+                            { branch_id: branch.id },
+                            `${member.name} moved to ${branch.name}.`,
+                          );
+                          if (ok) {
+                            setMembers((current) =>
+                              current.map((entry) =>
+                                entry.id === member.id ? { ...entry, branchId: branch.id } : entry,
+                              ),
+                            );
+                          }
+                        },
+                      })),
                     { separator: true },
                     {
                       label: member.status === "suspended" ? "Restore access" : "Suspend access",
-                      onSelect: () => {
-                        setMembers((current) =>
-                          current.map((entry) =>
-                            entry.id === member.id
-                              ? { ...entry, status: entry.status === "suspended" ? "active" : "suspended" }
-                              : entry,
-                          ),
-                        );
-                        setToast(
-                          member.status === "suspended"
+                      onSelect: async () => {
+                        // `active` is what current_organization_id() reads, so
+                        // suspending genuinely removes their access to every
+                        // row rather than only greying out a badge.
+                        const restore = member.status === "suspended";
+                        const ok = await patchMember(
+                          member,
+                          { active: restore },
+                          restore
                             ? `${member.name} can sign in again.`
-                            : `${member.name} can no longer sign in.`,
+                            : `${member.name} can no longer reach this organisation's data.`,
                         );
+                        if (ok) {
+                          setMembers((current) =>
+                            current.map((entry) =>
+                              entry.id === member.id
+                                ? { ...entry, status: restore ? "active" : "suspended" }
+                                : entry,
+                            ),
+                          );
+                        }
                       },
                     },
                   ]}
@@ -411,6 +471,74 @@ export function SettingsView({
           </Card>
         ) : null}
       </div>
+
+      {/* Changing a role is the one setting with a clinical consequence, so the
+          dialog states it rather than presenting a bare dropdown. */}
+      <Dialog
+        open={Boolean(roleFor)}
+        onClose={() => setRoleFor(null)}
+        title={roleFor ? `Change ${roleFor.name}'s role` : "Change role"}
+        description="This takes effect the next time they load a page."
+        width={560}
+        footer={
+          <button type="button" className="act" onClick={() => setRoleFor(null)}>
+            Close
+          </button>
+        }
+      >
+        {roleFor ? (
+          <div>
+            {roles.map((role) => {
+              const current = role.id === roleFor.role;
+              return (
+                <button
+                  key={role.id}
+                  type="button"
+                  disabled={current}
+                  onClick={async () => {
+                    const target = roleFor;
+                    const ok = await patchMember(
+                      target,
+                      { role: role.id },
+                      `${target.name} is now ${role.name}.`,
+                    );
+                    if (ok) {
+                      setMembers((entries) =>
+                        entries.map((entry) =>
+                          entry.id === target.id ? { ...entry, role: role.id } : entry,
+                        ),
+                      );
+                      setRoleFor(null);
+                    }
+                  }}
+                  className="tile mb-2 flex w-full flex-col items-start p-3 last:mb-0"
+                  data-live={current}
+                >
+                  <span className="flex w-full items-center gap-2">
+                    <span className="t-data font-semibold" style={{ color: "var(--ink)" }}>
+                      {role.name}
+                    </span>
+                    {current ? <span className="cell cell-primary-soft">Current</span> : null}
+                  </span>
+                  <span className="t-prose mt-1 block" data-depth="1">
+                    {role.summary}
+                  </span>
+                  {role.cannot.length ? (
+                    <span className="t-xs mt-1.5 block" data-depth="1">
+                      Cannot: {role.cannot.join(" · ")}
+                    </span>
+                  ) : null}
+                </button>
+              );
+            })}
+
+            <p className="band t-sm mt-3" data-sev="conflict">
+              Only a pharmacist or an owner may clear a clinical finding. Moving somebody off those roles
+              takes that away immediately.
+            </p>
+          </div>
+        ) : null}
+      </Dialog>
 
       <InviteDialog
         open={inviteOpen}

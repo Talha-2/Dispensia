@@ -12,6 +12,7 @@ import {
   FileText,
   LayoutDashboard,
   LogOut,
+  Package,
   Settings as SettingsIcon,
   ShieldAlert,
   Users,
@@ -36,10 +37,11 @@ const NAV = [
   { label: "Register", href: "/register", key: "4", group: "Dispensing", icon: <BadgeCheck {...ICON} /> },
   // Catalogue and Stock were the same screen with one filter locked; the scope
   // toggle inside the catalogue replaced the second entry.
-  { label: "Catalogue", href: "/catalogue", key: "5", group: "Inventory", icon: <Boxes {...ICON} /> },
-  { label: "Overview", href: "/dashboard", key: "6", group: "Management", icon: <LayoutDashboard {...ICON} /> },
-  { label: "Reports", href: "/reports", key: "7", group: "Management", icon: <FileText {...ICON} /> },
-  { label: "Settings", href: "/settings", key: "8", group: "Management", icon: <SettingsIcon {...ICON} /> },
+  { label: "Stock", href: "/inventory", key: "5", group: "Inventory", icon: <Package {...ICON} /> },
+  { label: "Catalogue", href: "/catalogue", key: "6", group: "Inventory", icon: <Boxes {...ICON} /> },
+  { label: "Overview", href: "/dashboard", key: "7", group: "Management", icon: <LayoutDashboard {...ICON} /> },
+  { label: "Reports", href: "/reports", key: "8", group: "Management", icon: <FileText {...ICON} /> },
+  { label: "Settings", href: "/settings", key: "9", group: "Management", icon: <SettingsIcon {...ICON} /> },
 ];
 
 const GROUPS = ["Dispensing", "Inventory", "Management"];
@@ -173,12 +175,7 @@ export function Rail({ counts }: { counts: RailCounts }) {
                       {item.icon}
                     </span>
                     {open ? (
-                      <>
-                        <span className="flex-1 truncate">{item.label}</span>
-                        <span className="kbd shrink-0" style={{ opacity: active ? 0.9 : 0.55 }}>
-                          {item.key}
-                        </span>
-                      </>
+                      <span className="flex-1 truncate">{item.label}</span>
                     ) : null}
                   </Link>
                 );
@@ -194,8 +191,8 @@ export function Rail({ counts }: { counts: RailCounts }) {
             <p className="pop-label px-0 pt-0">Needs attention</p>
             <dl className="mt-1.5 space-y-1.5">
               {[
-                { label: "Needs reorder", value: counts.reorder, tone: counts.reorder ? "var(--warn)" : undefined, href: "/catalogue?scope=stocked&stock=out,critical,low" },
-                { label: "Expiring 90d", value: counts.expiring, tone: counts.expiring ? "var(--warn)" : undefined, href: "/catalogue?scope=stocked&expiry=expiring" },
+                { label: "Needs reorder", value: counts.reorder, tone: counts.reorder ? "var(--warn)" : undefined, href: "/inventory" },
+                { label: "Expiring 90d", value: counts.expiring, tone: counts.expiring ? "var(--warn)" : undefined, href: "/inventory" },
                 { label: "Reserve antibiotics", value: counts.reserve, href: "/catalogue?aware=RESERVE" },
                 { label: "Controlled lines", value: counts.controlled, href: "/register" },
               ].map((row) => (

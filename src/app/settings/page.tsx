@@ -1,6 +1,7 @@
 import { SettingsView } from "@/components/settings-view";
 import { Shell } from "@/components/shell";
-import { members as demoMembers, roles } from "@/data/organisation";
+import { roles, type Member, type RoleId } from "@/data/organisation";
+import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { getTenant } from "@/lib/tenant";
 import { getCatalogueMeta, query } from "@/lib/catalogue";
 import { RULES } from "@/lib/safety";
@@ -13,21 +14,25 @@ export default async function SettingsPage() {
   const tenant = await getTenant();
   const { organisation, branches } = tenant;
 
-  // A real organisation starts with the person who created it. Only the shared
-  // demo tenant carries a staffed roster.
-  const members = tenant.isDemo
-    ? demoMembers
-    : [
-        {
-          id: "me",
-          name: tenant.signedInAs ?? "Owner",
-          email: organisation.email,
-          role: "owner" as const,
-          branchId: tenant.currentBranch.id,
-          status: "active" as const,
-          lastActive: "just now",
-        },
-      ];
+  // The real roster, read from the database rather than invented. Without it
+  // the Members screen could show a team but never change one.
+  const supabase = await getSupabaseServerClient();
+  const { data: staff } = supabase
+    ? await supabase
+        .from("staff_profiles")
+        .select("id, full_name, email, role, branch_id, active, created_at")
+        .order("created_at")
+    : { data: null };
+
+  const members: Member[] = (staff ?? []).map((row) => ({
+    id: row.id as string,
+    name: (row.full_name as string) || (row.email as string) || "Member",
+    email: (row.email as string) ?? "—",
+    role: (row.role as RoleId) ?? "technician",
+    branchId: (row.branch_id as string) ?? tenant.currentBranch.id,
+    status: row.active ? "active" : "suspended",
+    lastActive: "—",
+  }));
 
   const meta = getCatalogueMeta();
   const stocked = query({ scope: "stocked", size: 1 });
