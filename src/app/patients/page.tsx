@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { PatientsView } from "@/components/patients-view";
 import { Fact, FactRow, Shell } from "@/components/shell";
-import { patients, prescribers } from "@/data/patients";
+import { getPatients } from "@/lib/records";
 
 export const metadata = {
   title: "Patients · Dispensia",
@@ -13,6 +13,8 @@ export default async function PatientsPage({
   searchParams: Promise<{ open?: string }>;
 }) {
   const { open } = await searchParams;
+  const patients = await getPatients();
+  const prescribers = [...new Set(patients.map((p) => p.prescriber).filter(Boolean))];
   const withAllergies = patients.filter((p) => p.allergies.length).length;
   const paediatric = patients.filter((p) => p.age < 18).length;
   const reproductive = patients.filter((p) => p.sex === "f" && p.age >= 15 && p.age <= 50).length;

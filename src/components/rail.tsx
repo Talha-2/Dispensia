@@ -17,6 +17,7 @@ import {
   ShieldAlert,
   Users,
 } from "lucide-react";
+import { useClerk } from "@clerk/nextjs";
 import { Wordmark } from "@/components/mark";
 
 export type RailCounts = {
@@ -90,6 +91,7 @@ function writeRail(pinned: boolean) {
 export function Rail({ counts }: { counts: RailCounts }) {
   const pathname = usePathname();
   const router = useRouter();
+  const { signOut } = useClerk();
   const pinned = useSyncExternalStore(subscribeRail, readRail, () => false);
   const [hovered, setHovered] = useState(false);
   const toggle = useCallback(() => writeRail(!readRail()), []);
@@ -221,14 +223,18 @@ export function Rail({ counts }: { counts: RailCounts }) {
       ) : null}
 
       <div className="flex shrink-0 items-center gap-1 border-t border-(--line) p-2">
-        <Link
-          href="/sign-in"
+        {/* A link to /sign-in was never a sign-out: Clerk sees a live session,
+            bounces straight back, and the session survives. Ending it has to be
+            an actual call. */}
+        <button
+          type="button"
           title="Sign out"
+          onClick={() => signOut({ redirectUrl: "/sign-in" })}
           className={`act act-quiet act-sm ${open ? "flex-1 justify-start" : "act-icon"}`}
         >
           <LogOut size={15} strokeWidth={1.7} />
           {open ? "Sign out" : null}
-        </Link>
+        </button>
         <button
           type="button"
           onClick={toggle}

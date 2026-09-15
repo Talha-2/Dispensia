@@ -139,3 +139,49 @@ export async function getStock(): Promise<{ lines: StockLine[]; summary: StockSu
 
   return { lines, summary };
 }
+
+/**
+ * The shelf in the shape the catalogue's own `query()` returns.
+ *
+ * The dashboard and the reports were written against that shape when stock was
+ * a slice of the catalogue. Giving them the same shape over the tenant's real
+ * rows means those screens read this pharmacy's shelf without being rebuilt —
+ * and read zero, correctly, for one that has received nothing.
+ */
+export async function getStockAsQuery() {
+  const { lines, summary } = await getStock();
+
+  const byState = (states: StockState[]) =>
+    lines.filter((line) => states.includes(line.state)).map((line) => line.medicine);
+
+  return {
+    lines,
+    items: lines.map((line) => line.medicine),
+    total: summary.lines,
+    summary: {
+      stockedLines: summary.lines,
+      unitsOnHand: summary.units,
+      stockValue: summary.valueAtCost,
+      needsReorder: summary.needsReorder,
+      expiringSoon: summary.expiringSoon,
+      expired: summary.expired,
+    },
+    /** Products this shelf is short of, shallowest first. */
+    short: lines
+      .filter((line) => line.state === "out" || line.state === "critical")
+      .sort((a, b) => a.onHand - b.onHand)
+      .map((line) => line.medicine),
+    expiringSoon: lines
+      .filter((line) => line.daysToExpiry !== null && line.daysToExpiry >= 0 && line.daysToExpiry <= 90)
+      .sort((a, b) => (a.daysToExpiry ?? 0) - (b.daysToExpiry ?? 0))
+      .map((line) => line.medicine),
+    expired: lines
+      .filter((line) => line.daysToExpiry !== null && line.daysToExpiry < 0)
+      .map((line) => line.medicine),
+    watched: lines
+      .filter((line) => line.medicine.aware === "RESERVE" || line.medicine.aware === "WATCH")
+      .sort((a, b) => b.onHand - a.onHand)
+      .map((line) => line.medicine),
+    healthy: byState(["healthy"]),
+  };
+}

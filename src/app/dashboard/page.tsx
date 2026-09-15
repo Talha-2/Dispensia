@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { Fact, FactRow, Shell } from "@/components/shell";
 import { Markers, Meter, compact, pkr } from "@/components/primitives";
-import { daysToExpiry, query, stockAggregates, stockState } from "@/lib/catalogue";
+import { daysToExpiry, stockAggregates, stockState } from "@/lib/catalogue";
+import { getStockAsQuery } from "@/lib/stock";
 import { RULES } from "@/lib/safety";
 
 export const metadata = {
@@ -51,14 +52,17 @@ function Queue({
   );
 }
 
-export default function DashboardPage() {
-  const stocked = query({ scope: "stocked", size: 5 });
+export default async function DashboardPage() {
+  // This pharmacy's own shelf. Every count below reads zero for one that has
+  // received nothing, which is the honest answer rather than a demonstration.
+  const shelf = await getStockAsQuery();
+  const stocked = { total: shelf.total, summary: shelf.summary };
   const totals = stockAggregates();
 
-  const expired = query({ scope: "stocked", expiry: ["expired"], sort: "expiry", size: 6 });
-  const critical = query({ scope: "stocked", stock: ["out", "critical"], sort: "stock", dir: "asc", size: 6 });
-  const expiring = query({ scope: "stocked", expiry: ["expiring"], sort: "expiry", size: 6 });
-  const reserve = query({ scope: "stocked", aware: ["RESERVE", "WATCH"], sort: "stock", dir: "desc", size: 6 });
+  const expired = { total: shelf.expired.length, items: shelf.expired.slice(0, 6) };
+  const critical = { total: shelf.short.length, items: shelf.short.slice(0, 6) };
+  const expiring = { total: shelf.expiringSoon.length, items: shelf.expiringSoon.slice(0, 6) };
+  const reserve = { total: shelf.watched.length, items: shelf.watched.slice(0, 6) };
 
   const urgent = expired.total + critical.total;
 

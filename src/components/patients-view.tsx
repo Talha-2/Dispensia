@@ -5,6 +5,7 @@ import { Download, Search as SearchIcon, UserPlus, X } from "lucide-react";
 import { Empty } from "@/components/primitives";
 import { Dialog, Toast } from "@/components/overlays";
 import { COMMANDS, useCommand } from "@/lib/commands";
+import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { exportCsv, stamp } from "@/lib/csv";
 import type { Patient } from "@/lib/types";
 
@@ -589,9 +590,7 @@ export function PatientsView({
           setAdded((current) => [patient, ...current]);
           setAddOpen(false);
           setOpen(patient.id);
-          setToast(
-            `${patient.name} added as ${patient.mrn}. The record lives in this session only until Supabase is connected.`,
-          );
+          setToast(`${patient.name} added as ${patient.mrn}.`);
         }}
       />
 
@@ -623,6 +622,7 @@ function AddPatientDialog({
   const [allergies, setAllergies] = useState("");
   const [conditions, setConditions] = useState("");
   const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const prescribers = useMemo(
     () => [...new Set(existing.map((p) => p.prescriber))].sort(),
@@ -653,26 +653,59 @@ function AddPatientDialog({
         .map((entry) => entry.trim())
         .filter(Boolean);
 
-    onCreate({
-      id: `p-${nextMrn.replace(/\D/g, "")}`,
-      mrn: nextMrn,
-      name: name.trim(),
-      age: years,
-      sex,
-      phone: phone.trim() || "—",
-      prescriber: prescriber || prescribers[0] || "Unassigned",
-      lastVisit: "2026-09-14",
-      allergies: split(allergies),
-      conditions: split(conditions),
-    });
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) return setError("Supabase is not configured, so records cannot be saved.");
 
-    setName("");
-    setAge("");
-    setSex("");
-    setPhone("");
-    setAllergies("");
-    setConditions("");
-    setError("");
+    setSaving(true);
+    // organization_id is filled by the insert policy's own scope check, so the
+    // client never chooses which pharmacy a patient belongs to.
+    supabase
+      .rpc("current_organization_id")
+      .then(({ data: org }) =>
+        supabase
+          .from("patients")
+          .insert({
+            organization_id: org,
+            medical_record_number: nextMrn,
+            full_name: name.trim(),
+            age: years,
+            sex,
+            phone: phone.trim() || null,
+            prescriber: prescriber || null,
+            allergies: split(allergies),
+            conditions: split(conditions),
+            last_visit: new Date().toISOString().slice(0, 10),
+          })
+          .select("id")
+          .single(),
+      )
+      .then(({ data, error: saveError }) => {
+        setSaving(false);
+        if (saveError) return setError(saveError.message);
+
+        onCreate({
+          id: (data?.id as string) ?? nextMrn,
+          mrn: nextMrn,
+          name: name.trim(),
+          age: years,
+          sex,
+          phone: phone.trim() || "—",
+          prescriber: prescriber || "Unassigned",
+          lastVisit: new Date().toISOString().slice(0, 10),
+          allergies: split(allergies),
+          conditions: split(conditions),
+        });
+
+        setName("");
+        setAge("");
+        setSex("");
+        setPhone("");
+        setAllergies("");
+        setConditions("");
+        setError("");
+      });
+
+    return undefined;
   }
 
   return (
@@ -687,9 +720,9 @@ function AddPatientDialog({
           <button type="button" className="act" onClick={onClose}>
             Cancel
           </button>
-          <button type="submit" form="add-patient" className="act act-primary">
+          <button type="submit" form="add-patient" className="act act-primary" disabled={saving}>
             <UserPlus size={15} strokeWidth={1.8} />
-            Create record
+            {saving ? "Saving…" : "Create record"}
           </button>
         </>
       }

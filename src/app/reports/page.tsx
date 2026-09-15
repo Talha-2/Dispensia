@@ -1,6 +1,7 @@
 import { Fact, FactRow, Shell } from "@/components/shell";
 import { compact, pkr } from "@/components/primitives";
-import { getCatalogueMeta, query, stockAggregates } from "@/lib/catalogue";
+import { getCatalogueMeta, stockAggregates } from "@/lib/catalogue";
+import { getStockAsQuery } from "@/lib/stock";
 
 export const metadata = {
   title: "Reports · Dispensia",
@@ -77,10 +78,12 @@ function Section({ title, note, children }: { title: string; note?: string; chil
   );
 }
 
-export default function ReportsPage() {
+export default async function ReportsPage() {
   const meta = getCatalogueMeta();
   const totals = stockAggregates();
-  const stocked = query({ scope: "stocked", size: 1 });
+  // This organisation's shelf, not a slice of the shared catalogue.
+  const shelf = await getStockAsQuery();
+  const stocked = { total: shelf.total, summary: shelf.summary };
 
   const makerMax = totals.makers[0]?.[1].value ?? 1;
   const formMax = totals.forms[0]?.[1].value ?? 1;

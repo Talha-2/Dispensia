@@ -2,7 +2,8 @@ import type { ReactNode } from "react";
 import { CommandField } from "@/components/command";
 import { Rail, RailStrip } from "@/components/rail";
 import { query } from "@/lib/catalogue";
-import { patients } from "@/data/patients";
+import { getPatients } from "@/lib/records";
+import { getStock } from "@/lib/stock";
 import { getTenant } from "@/lib/tenant";
 
 /** Initials for the avatar, from whatever name the account actually carries. */
@@ -39,17 +40,20 @@ export async function Shell({
   fill?: boolean;
 }) {
   const tenant = await getTenant();
-  const stocked = query({ scope: "stocked", size: 5 });
-  const reserve = query({ aware: ["RESERVE"], size: 5 });
-  const controlled = query({ flags: ["controlled"], size: 5 });
-  const all = query({ size: 5 });
+  const [patients, stock] = await Promise.all([getPatients(), getStock()]);
+
+  // Reserve and controlled are catalogue facts — how many such products exist.
+  // Everything else is this shelf, and reads zero until something is received.
+  const reserve = query({ aware: ["RESERVE"], size: 1 });
+  const controlled = query({ flags: ["controlled"], size: 1 });
+  const all = query({ size: 1 });
 
   const counts = {
-    reorder: stocked.summary.needsReorder,
-    expiring: stocked.summary.expiringSoon,
+    reorder: stock.summary.needsReorder,
+    expiring: stock.summary.expiringSoon,
     reserve: reserve.total,
     controlled: controlled.total,
-    stocked: stocked.total,
+    stocked: stock.summary.lines,
     total: all.total,
   };
 

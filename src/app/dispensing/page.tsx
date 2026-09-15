@@ -1,8 +1,9 @@
 import { Counter, type FeedEntry } from "@/components/counter";
 import { Shell } from "@/components/shell";
-import { getMedicines, query } from "@/lib/catalogue";
+import { getMedicines } from "@/lib/catalogue";
 import { RULES } from "@/lib/safety";
-import { patients } from "@/data/patients";
+import { getPatients, getRegister } from "@/lib/records";
+import { getStock } from "@/lib/stock";
 
 export const metadata = {
   title: "Counter · Dispensia",
@@ -17,90 +18,51 @@ export default async function DispensingPage({
   const initialLines = getMedicines((params.lines ?? "").split(",").filter(Boolean));
   const initialPatient = params.patient ?? "";
 
-  // The lines this branch holds most of — the fastest way to start a basket
-  // without typing, and a realistic stand-in for a fast-mover list.
-  const starters = query({ scope: "stocked", sort: "stock", dir: "desc", size: 8 }).items;
+  const [patients, { lines: stock }, register] = await Promise.all([
+    getPatients(),
+    getStock(),
+    getRegister(),
+  ]);
 
-  // SYNTHETIC activity, composed from real products so every name, class and
-  // obligation on the feed is one the catalogue actually carries.
-  const watch = query({ scope: "stocked", aware: ["WATCH"], size: 4 }).items;
-  const controlled = query({ scope: "stocked", flags: ["controlled"], size: 2 }).items;
-  const nsaid = query({ scope: "stocked", flags: ["nsaid"], size: 2 }).items;
-  const ppi = query({ scope: "stocked", flags: ["ppi"], size: 2 }).items;
+  // The fast-mover shortcuts are this pharmacy's own deepest lines. They used to
+  // come from the catalogue's synthetic stock, which put eight products on the
+  // bench of a shop that had never received a delivery.
+  const starters = stock
+    .filter((line) => line.onHand > 0)
+    .slice(0, 8)
+    .map((line) => line.medicine);
 
-  const feed: FeedEntry[] = [
-    controlled[0] && {
-      time: "11:42",
-      kind: "register" as const,
-      what: `Register entry — ${controlled[0].short}`,
-      who: "A. Yousaf",
-      detail: `${controlled[0].molecule} · balance checked · prescriber verified`,
-    },
-    nsaid[0] && {
-      time: "11:20",
-      kind: "block" as const,
-      what: "Blocked — anticoagulant + NSAID",
-      who: "A. Yousaf",
-      detail: `${nsaid[0].short} withheld; paracetamol supplied instead`,
-    },
-    watch[0] && {
-      time: "10:58",
-      kind: "counsel" as const,
-      what: `Counselled — ${watch[0].short}`,
-      who: "M. Raza",
-      detail: "AWaRe Watch · complete the course, do not share",
-    },
-    ppi[0] && {
-      time: "10:31",
-      kind: "override" as const,
-      what: "Override — clopidogrel + esomeprazole",
-      who: "A. Yousaf",
-      detail: "Prescriber contacted, switched to pantoprazole on the next fill",
-    },
-    watch[1] && {
-      time: "10:04",
-      kind: "dispense" as const,
-      what: `Dispensed — ${watch[1].short}`,
-      who: "M. Raza",
-      detail: "3 lines · clear · no findings",
-    },
-    nsaid[1] && {
-      time: "09:47",
-      kind: "dispense" as const,
-      what: `Dispensed — ${nsaid[1].short}`,
-      who: "A. Yousaf",
-      detail: "1 line · counsel · take with food",
-    },
-    watch[2] && {
-      time: "09:26",
-      kind: "counsel" as const,
-      what: `Counselled — ${watch[2].short}`,
-      who: "A. Yousaf",
-      detail: "Photosensitivity and tendon pain warning given",
-    },
-    starters[0] && {
-      time: "09:08",
-      kind: "dispense" as const,
-      what: `Dispensed — ${starters[0].short}`,
-      who: "M. Raza",
-      detail: "2 lines · clear · first sale of the day",
-    },
-  ].filter(Boolean) as FeedEntry[];
+  // Today at this counter, read off the register. Empty until something is
+  // actually dispensed, rather than a demonstration of what activity looks like.
+  const feed: FeedEntry[] = register.slice(0, 8).map((entry) => ({
+    time: entry.time,
+    kind: entry.override ? ("override" as const) : ("register" as const),
+    what: `Register entry — ${entry.brand}`,
+    who: entry.pharmacist,
+    detail: entry.override
+      ? `${entry.molecule} · overridden — ${entry.override}`
+      : `${entry.molecule} · ${entry.qty} supplied · balance ${entry.balance}`,
+  }));
 
   return (
     <Shell
       title="Counter"
       meta={
         <>
-          <span className="t-data" data-depth="1">
-            <span className="t-num" data-depth="2">
+          <span className="t-sm" data-depth="2">
+            <span className="t-num font-semibold" style={{ color: "var(--ink)" }}>
               {RULES.length}
             </span>{" "}
             interaction rules armed
           </span>
-          <span className="t-data" data-depth="1">
+          <span className="t-sm" data-depth="1">
             AWaRe stewardship · controlled-drug register · counselling duties
           </span>
+          {stock.length === 0 ? (
+            <span className="t-sm" data-depth="0">
+              no stock received yet — search the catalogue to build a basket
+            </span>
+          ) : null}
         </>
       }
     >
