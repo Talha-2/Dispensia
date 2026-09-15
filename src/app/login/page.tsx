@@ -181,7 +181,14 @@ function Auth() {
         </label>
 
         <label className="mt-4 block">
-          <span className="t-label">Password</span>
+          <span className="flex items-baseline justify-between gap-3">
+            <span className="t-label">Password</span>
+            {mode === "signin" ? (
+              <a href="/forgot-password" className="t-xs" data-depth="1">
+                Forgotten it?
+              </a>
+            ) : null}
+          </span>
           <input
             type="password"
             value={password}

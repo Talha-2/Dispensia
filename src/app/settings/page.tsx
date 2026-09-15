@@ -66,6 +66,16 @@ export default async function SettingsPage() {
         roles={roles}
         catalogue={catalogue}
         isDemo={tenant.isDemo}
+        account={
+          tenant.signedInAs
+            ? {
+                name: tenant.signedInAs,
+                email: tenant.signedInEmail ?? organisation.email,
+                role: members[0]?.role ?? "member",
+                branch: tenant.currentBranch.name,
+              }
+            : null
+        }
       />
     </Shell>
   );

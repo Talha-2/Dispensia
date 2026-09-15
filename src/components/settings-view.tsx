@@ -11,18 +11,21 @@ import {
   ShieldCheck,
   Store,
   UserPlus,
+  UserRound,
   Users,
 } from "lucide-react";
 import { Dialog, Menu, Toast } from "@/components/overlays";
 import { InviteDialog } from "@/components/invite-dialog";
 import { OrganisationCard } from "@/components/organisation-card";
 import { DemoReset } from "@/components/demo-reset";
+import { AccountCard } from "@/components/account-card";
 import type { Branch, Member, Organisation, Role } from "@/data/organisation";
 import { SHORTCUTS } from "@/lib/shortcuts";
 
-type Tab = "organisation" | "branches" | "members" | "roles" | "clinical" | "keyboard";
+type Tab = "account" | "organisation" | "branches" | "members" | "roles" | "clinical" | "keyboard";
 
 const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
+  { id: "account", label: "Your account", icon: <UserRound size={15} strokeWidth={1.8} /> },
   { id: "organisation", label: "Organisation", icon: <Building2 size={15} strokeWidth={1.8} /> },
   { id: "branches", label: "Branches", icon: <Store size={15} strokeWidth={1.8} /> },
   { id: "members", label: "Members", icon: <Users size={15} strokeWidth={1.8} /> },
@@ -44,6 +47,7 @@ export function SettingsView({
   roles,
   catalogue,
   isDemo = false,
+  account,
 }: {
   organisation: Organisation;
   branches: Branch[];
@@ -52,6 +56,8 @@ export function SettingsView({
   catalogue: { label: string; value: string }[];
   /** The demo tenant: writable like any other, but resettable to its seed. */
   isDemo?: boolean;
+  /** The signed-in person, for the account section. */
+  account?: { name: string; email: string; role: string; branch: string } | null;
 }) {
   const [tab, setTab] = useState<Tab>("organisation");
   const [members, setMembers] = useState(seedMembers);
@@ -101,6 +107,40 @@ export function SettingsView({
       </nav>
 
       <div className="min-w-0">
+        {tab === "account" ? (
+          <div className="grid items-start gap-4 xl:grid-cols-2">
+            {account ? (
+              <AccountCard
+                name={account.name}
+                email={account.email}
+                role={account.role}
+                branch={account.branch}
+                onDone={setToast}
+              />
+            ) : (
+              <div className="band" data-sev="conflict">
+                <p className="t-label">Not signed in</p>
+                <p className="t-prose mt-1" data-depth="2">
+                  This workspace is running without Supabase credentials, so there is no account to
+                  manage. Sign-in is open and nothing persists between reloads.
+                </p>
+              </div>
+            )}
+
+            <div className="band" data-sev="counsel">
+              <p className="t-label" style={{ color: "var(--ink)" }}>
+                Forgotten passwords
+              </p>
+              <p className="t-prose mt-1" data-depth="2">
+                Changing it here needs no email, because the session already proves who you are. The
+                emailed reset link at /forgot-password is the fallback for somebody who cannot sign in
+                at all — and it is the flow that breaks first, since it depends on mail being
+                deliverable.
+              </p>
+            </div>
+          </div>
+        ) : null}
+
         {tab === "organisation" ? (
           <div className="grid items-start gap-4 xl:grid-cols-2">
             <OrganisationCard organisation={organisation} onSaved={setToast} />

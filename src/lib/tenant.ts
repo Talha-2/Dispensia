@@ -14,6 +14,8 @@ export type Tenant = {
   currentBranch: Branch;
   /** The signed-in person's display name, for receipts and register entries. */
   signedInAs: string | null;
+  /** Their account address — what re-authentication and invitations key on. */
+  signedInEmail: string | null;
   /** True when the workspace is showing the shared showroom tenant. */
   isDemo: boolean;
   /** True when the account has no organisation yet and should be onboarded. */
@@ -79,6 +81,7 @@ const demoTenant = (extra: Partial<Tenant> = {}): Tenant => ({
   branches: demoBranches,
   currentBranch: demoBranches[0],
   signedInAs: null,
+  signedInEmail: null,
   isDemo: true,
   needsOnboarding: false,
   ...extra,
@@ -114,7 +117,7 @@ export async function getTenant(): Promise<Tenant> {
   // Signed in, but not a member of anything yet: show the demo and offer to
   // create a real organisation.
   if (!profile?.organization_id) {
-    return demoTenant({ signedInAs: displayName, needsOnboarding: true });
+    return demoTenant({ signedInAs: displayName, signedInEmail: user.email ?? null, needsOnboarding: true });
   }
 
   const [{ data: org }, { data: rows }] = await Promise.all([
@@ -127,7 +130,7 @@ export async function getTenant(): Promise<Tenant> {
       .order("name"),
   ]);
 
-  if (!org) return demoTenant({ signedInAs: displayName, needsOnboarding: true });
+  if (!org) return demoTenant({ signedInAs: displayName, signedInEmail: user.email ?? null, needsOnboarding: true });
 
   const list = (rows ?? []).map(toBranch);
   const current =
@@ -138,6 +141,7 @@ export async function getTenant(): Promise<Tenant> {
     branches: list.length ? list : demoBranches,
     currentBranch: current,
     signedInAs: profile.full_name?.trim() || displayName,
+    signedInEmail: user.email ?? null,
     isDemo: Boolean((org as OrgRow).is_demo),
     needsOnboarding: false,
   };

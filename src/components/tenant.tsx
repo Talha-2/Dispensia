@@ -13,6 +13,7 @@ export type TenantValue = {
   branches: Branch[];
   currentBranch: Branch;
   signedInAs: string | null;
+  signedInEmail: string | null;
   isDemo: boolean;
   needsOnboarding: boolean;
 };
@@ -22,6 +23,7 @@ const FALLBACK: TenantValue = {
   branches: demoBranches,
   currentBranch: demoBranches[0],
   signedInAs: null,
+  signedInEmail: null,
   isDemo: true,
   needsOnboarding: false,
 };
