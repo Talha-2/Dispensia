@@ -19,11 +19,11 @@ import {
 import { EMPTY_FILTERS, type FacetSet, type Filters } from "@/components/filter-rail";
 import { FilterChips, FilterPopover } from "@/components/filter-popover";
 import { ProductPanel } from "@/components/product-panel";
-import { Empty, Identity, Markers, Meter, compact, pkr } from "@/components/primitives";
+import { Empty, Identity, Markers, pkr } from "@/components/primitives";
 import { Dialog, Menu, Toast } from "@/components/overlays";
 import { COMMANDS, useCommand } from "@/lib/commands";
 import { exportCsv, parseCsv, stamp } from "@/lib/csv";
-import type { FlagMeta, Medicine, StockState } from "@/lib/types";
+import type { FlagMeta, Medicine } from "@/lib/types";
 
 type Result = {
   items: Medicine[];
@@ -48,72 +48,9 @@ type Result = {
 type View = "table" | "list" | "board";
 type Sort = "relevance" | "brand" | "price" | "stock" | "expiry" | "maker" | "margin";
 
-const TODAY = new Date("2026-09-14T00:00:00Z");
-
-function shelfState(medicine: Medicine): StockState | null {
-  if (!medicine.stock) return null;
-  const { onHand, reorder } = medicine.stock;
-  if (onHand === 0) return "out";
-  if (onHand <= reorder * 0.5) return "critical";
-  if (onHand <= reorder) return "low";
-  return "healthy";
-}
-
-function expiryDays(medicine: Medicine): number | null {
-  if (!medicine.stock) return null;
-  return Math.round((new Date(`${medicine.stock.expiry}T00:00:00Z`).getTime() - TODAY.getTime()) / 86400000);
-}
-
 function marginOf(medicine: Medicine) {
   if (!medicine.price || !medicine.cost) return null;
   return ((medicine.price - medicine.cost) / medicine.price) * 100;
-}
-
-/** Expiry, coloured by how close it is. Never colour alone — the number is the fact. */
-function Expiry({ medicine }: { medicine: Medicine }) {
-  const days = expiryDays(medicine);
-  if (!medicine.stock || days === null) {
-    return (
-      <span className="t-data" data-depth="0">
-        —
-      </span>
-    );
-  }
-  const tone = days < 0 ? "var(--danger)" : days <= 90 ? "var(--warn)" : undefined;
-  // The countdown only earns its space while it can still change a decision.
-  // Beyond six months the date alone is the fact.
-  const relative = days < 0 ? `−${Math.abs(days)}d` : days <= 180 ? `${days}d` : null;
-  return (
-    <span className="t-data t-num whitespace-nowrap" style={{ color: tone }} data-depth={tone ? "3" : "1"}>
-      {medicine.stock.expiry.slice(2)}
-      {relative ? (
-        <span className="ml-1" data-depth="0">
-          {relative}
-        </span>
-      ) : null}
-    </span>
-  );
-}
-
-function StockCell({ medicine }: { medicine: Medicine }) {
-  const state = shelfState(medicine);
-  if (!medicine.stock || !state) {
-    // A dash, not "not stocked": the absent meter already says it, and the word
-    // repeated down thirty rows costs more attention than it returns.
-    return (
-      <span className="t-data" data-depth="0" title="Not stocked at this branch">
-        —
-      </span>
-    );
-  }
-  return (
-    <span className="flex items-center gap-2">
-      <Meter value={medicine.stock.onHand} of={medicine.stock.reorder} tone={state} />
-      <span className="t-data t-num w-8 text-right" data-depth={state === "healthy" ? "2" : "3"}>
-        {medicine.stock.onHand}
-      </span>
-    </span>
-  );
 }
 
 const COLUMNS: { key: string; label: string; sort?: Sort; width: string; align?: "right" }[] = [
@@ -125,10 +62,10 @@ const COLUMNS: { key: string; label: string; sort?: Sort; width: string; align?:
   { key: "pack", label: "Pack", width: "38px", align: "right" },
   { key: "price", label: "Retail", sort: "price", width: "64px", align: "right" },
   { key: "margin", label: "Margin", sort: "margin", width: "46px", align: "right" },
-  { key: "stock", label: "On hand", sort: "stock", width: "80px" },
-  { key: "batch", label: "Batch", width: "64px" },
-  { key: "expiry", label: "Expiry", sort: "expiry", width: "88px" },
-  { key: "shelf", label: "Shelf", width: "52px" },
+  // No stock columns. What a pharmacy holds is its own record, on its own
+  // screen; the number that used to sit here came from the catalogue file and
+  // was the same for everybody, which made it worse than absent.
+  { key: "counsel", label: "Counselling", width: "minmax(120px,1.1fr)" },
 ];
 
 // One track per column and nothing else. There used to be a leading 12px track
@@ -183,7 +120,7 @@ export function CatalogueView({
   const [dir, setDir] = useState<"asc" | "desc">("asc");
   const [page, setPage] = useState(1);
   const [size, setSize] = useState(50);
-  const [groupBy, setGroupBy] = useState<"aware" | "stock" | "form">("aware");
+  const [groupBy, setGroupBy] = useState<"aware" | "form">("aware");
   const [open, setOpen] = useState<string | null>(params.get("open"));
 
   // Results are keyed by the query that produced them, so "loading" and "failed"
@@ -321,13 +258,8 @@ export function CatalogueView({
   const groups = useMemo(() => {
     if (view !== "board") return [];
     const keyOf = (m: Medicine) =>
-      groupBy === "aware" ? m.aware : groupBy === "stock" ? (shelfState(m) ?? "not stocked") : m.form;
-    const order =
-      groupBy === "aware"
-        ? ["RESERVE", "WATCH", "ACCESS", "NA"]
-        : groupBy === "stock"
-          ? ["out", "critical", "low", "healthy", "not stocked"]
-          : [];
+      groupBy === "aware" ? m.aware : m.form;
+    const order = groupBy === "aware" ? ["RESERVE", "WATCH", "ACCESS", "NA"] : [];
     const map = new Map<string, Medicine[]>();
     for (const item of items) {
       const key = keyOf(item);
@@ -388,27 +320,6 @@ export function CatalogueView({
             )}
           </div>
 
-          {/* Scope replaces the separate Stock screen: the same 10,434 products,
-              narrowed to what this branch holds. */}
-          {lockScope ? null : (
-            <div className="seg shrink-0" role="group" aria-label="Scope">
-              <button
-                type="button"
-                aria-pressed={filters.scope === "all"}
-                onClick={() => applyFilters({ ...filters, scope: "all" })}
-              >
-                Catalogue
-              </button>
-              <button
-                type="button"
-                aria-pressed={filters.scope === "stocked"}
-                onClick={() => applyFilters({ ...filters, scope: "stocked" })}
-              >
-                In stock
-              </button>
-            </div>
-          )}
-
           {result ? (
             <FilterPopover
               facets={result.facets}
@@ -440,7 +351,6 @@ export function CatalogueView({
               aria-label="Group board by"
             >
               <option value="aware">AWaRe class</option>
-              <option value="stock">Shelf state</option>
               <option value="form">Dosage form</option>
             </select>
           ) : null}
@@ -474,39 +384,22 @@ export function CatalogueView({
             </span>
             <span className="t-data" data-depth="1">
               <span className="t-num" data-depth="2">
-                {result.summary.stockedLines.toLocaleString()}
+                {result.facets.molecule.length.toLocaleString()}
               </span>{" "}
-              stocked
+              molecules
             </span>
             <span className="t-data" data-depth="1">
               <span className="t-num" data-depth="2">
-                {compact(result.summary.unitsOnHand)}
+                {result.facets.maker.length.toLocaleString()}
               </span>{" "}
-              units
+              manufacturers
             </span>
-            <span className="t-data" data-depth="1">
-              PKR{" "}
-              <span className="t-num" data-depth="2">
-                {compact(Math.round(result.summary.stockValue))}
-              </span>{" "}
-              at cost
-            </span>
-            {result.summary.needsReorder > 0 ? (
-              <span className="t-data" style={{ color: "var(--warn)" }}>
-                <span className="t-num">{result.summary.needsReorder}</span> need reorder
-              </span>
-            ) : null}
-            {result.summary.expired > 0 ? (
-              <span className="t-data" style={{ color: "var(--danger)" }}>
-                <span className="t-num">{result.summary.expired}</span> expired
-              </span>
-            ) : null}
             {result.summary.watchReserve > 0 ? (
               <span className="t-data" data-depth="1">
                 <span className="t-num" data-depth="2">
                   {result.summary.watchReserve}
                 </span>{" "}
-                watch/reserve
+                AWaRe watch or reserve
               </span>
             ) : null}
             {loading ? (
@@ -1240,17 +1133,9 @@ function TableView({
               >
                 {mg === null ? "—" : `${mg.toFixed(0)}%`}
               </span>
-              <span>
-                <StockCell medicine={medicine} />
-              </span>
-              <span className="t-data t-num truncate" data-depth="1">
-                {medicine.stock?.batch ?? "—"}
-              </span>
-              <span>
-                <Expiry medicine={medicine} />
-              </span>
+              {/* One cell for the one column that replaced the four stock ones. */}
               <span className="t-data truncate" data-depth="1">
-                {medicine.stock?.shelf ?? "—"}
+                {medicine.counsel >= 0 ? "counselling duty" : "—"}
               </span>
             </div>
           );
@@ -1280,8 +1165,6 @@ function ListView({
     <div className="panel min-h-0 flex-1 overflow-y-auto px-3">
       {items.map((medicine) => {
         const live = open === medicine.id;
-        const state = shelfState(medicine);
-        const days = expiryDays(medicine);
         const mg = marginOf(medicine);
         return (
           <div
@@ -1320,31 +1203,13 @@ function ListView({
               </span>
             </span>
 
-            <span className="hidden w-[150px] shrink-0 md:block">
-              {medicine.stock && state ? (
-                <>
-                  <span className="flex items-center gap-2">
-                    <Meter value={medicine.stock.onHand} of={medicine.stock.reorder} tone={state} />
-                    <span className="t-data t-num" data-depth="2">
-                      {medicine.stock.onHand}
-                    </span>
-                  </span>
-                  <span className="t-data mt-0.5 block" data-depth="1">
-                    {medicine.stock.shelf} · {medicine.stock.batch}
-                  </span>
-                </>
-              ) : (
-                <span className="t-data" data-depth="0">
-                  not stocked
-                </span>
-              )}
-            </span>
-
-            <span className="hidden w-[116px] shrink-0 lg:block">
-              <Expiry medicine={medicine} />
-              {days !== null ? (
-                <span className="t-data mt-0.5 block" data-depth="0">
-                  {days < 0 ? "past expiry" : days <= 90 ? "expiring soon" : "in date"}
+            {/* Counselling is the catalogue's own obligation, and the thing a
+                pharmacist most often opens this screen to check. It replaced a
+                shelf meter that belonged to no pharmacy. */}
+            <span className="hidden min-w-0 flex-1 shrink md:block">
+              {medicine.counsel >= 0 ? (
+                <span className="t-data truncate" data-depth="1">
+                  counselling duty recorded
                 </span>
               ) : null}
             </span>
@@ -1447,7 +1312,6 @@ function BoardView({
                 <div className="lane-body">
                   {list.slice(0, 40).map((medicine) => {
                     const live = open === medicine.id;
-                    const state = shelfState(medicine);
                     return (
                       <button
                         key={medicine.id}
@@ -1473,18 +1337,9 @@ function BoardView({
                         </span>
 
                         <span className="mt-2 flex items-center gap-2">
-                          {medicine.stock && state ? (
-                            <>
-                              <Meter value={medicine.stock.onHand} of={medicine.stock.reorder} tone={state} />
-                              <span className="t-data t-num" data-depth="2">
-                                {medicine.stock.onHand}
-                              </span>
-                            </>
-                          ) : (
-                            <span className="t-xs" data-depth="0">
-                              not stocked
-                            </span>
-                          )}
+                          <span className="t-xs" data-depth="1">
+                            {medicine.pack ? `${medicine.pack}/pack` : "—"}
+                          </span>
                           <span className="t-data t-num ml-auto" data-depth="3">
                             {pkr(medicine.price, true)}
                           </span>

@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { CommandField } from "@/components/command";
 import { Rail, RailStrip } from "@/components/rail";
+import { BranchSwitcher } from "@/components/switchers";
 import { query } from "@/lib/catalogue";
 import { getPatients } from "@/lib/records";
 import { getStock } from "@/lib/stock";
@@ -59,7 +60,11 @@ export async function Shell({
 
   return (
     <div className={fill ? "h-screen overflow-hidden" : "min-h-screen"}>
-      <Rail counts={counts} />
+      <Rail
+        counts={counts}
+        organisation={tenant.organisation.name}
+        branch={tenant.currentBranch.name}
+      />
 
       <div
         className={`lg:pl-[var(--rail-width,var(--rail))] ${fill ? "flex h-screen flex-col overflow-hidden" : ""}`}
@@ -76,28 +81,13 @@ export async function Shell({
             </div>
 
             <div className="hidden items-center gap-4 md:flex">
-              {/* Which organisation this workspace is acting for. On the shared
-                  demo it says so and offers the way out, because a pharmacist
-                  must never be unsure whether what they are looking at is real. */}
-              {tenant.needsOnboarding ? (
-                <a href="/onboarding" className="flex items-center gap-2" title="Set up your own pharmacy">
-                  <span className="cell cell-watch-soft">DEMO</span>
-                  <span className="t-sm" data-depth="2">
-                    {tenant.organisation.name}
-                  </span>
-                </a>
-              ) : tenant.isDemo ? (
-                <span className="flex items-center gap-2" title="Demo tenant — resettable from Settings">
-                  <span className="cell cell-watch-soft">DEMO</span>
-                  <span className="t-sm" data-depth="2">
-                    {tenant.organisation.name}
-                  </span>
-                </span>
-              ) : (
-                <span className="t-sm" data-depth="2">
-                  {tenant.organisation.name}
-                </span>
-              )}
+              {/* Which branch this shift is on. The pharmacy itself is named on
+                  the wordmark, where the switch between pharmacies lives; the
+                  DEMO mark stays here because whether the data is real is the
+                  one thing a pharmacist must never have to guess. */}
+              {tenant.isDemo ? <span className="cell cell-watch-soft">DEMO</span> : null}
+
+              <BranchSwitcher branches={tenant.branches} current={tenant.currentBranch} />
               <span
                 aria-hidden="true"
                 className="h-5 w-px shrink-0"

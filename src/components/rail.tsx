@@ -18,7 +18,8 @@ import {
   Users,
 } from "lucide-react";
 import { useClerk } from "@clerk/nextjs";
-import { Wordmark } from "@/components/mark";
+import { Mark } from "@/components/mark";
+import { OrgSwitcher } from "@/components/switchers";
 
 export type RailCounts = {
   reorder: number;
@@ -88,7 +89,15 @@ function writeRail(pinned: boolean) {
  * it. The branch-signal block is pinned to the bottom so the counts a
  * pharmacist glances at are always in the same place.
  */
-export function Rail({ counts }: { counts: RailCounts }) {
+export function Rail({
+  counts,
+  organisation,
+  branch,
+}: {
+  counts: RailCounts;
+  organisation: string;
+  branch: string;
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const { signOut } = useClerk();
@@ -141,9 +150,16 @@ export function Rail({ counts }: { counts: RailCounts }) {
           open ? "px-4" : "justify-center"
         }`}
       >
-        <Link href="/dispensing" aria-label="Dispensia home">
-          <Wordmark collapsed={!open} />
-        </Link>
+        {/* The wordmark is also the answer to "whose counter is this", so the
+            switch lives on it rather than somewhere else in the chrome. */}
+        <span className={open ? "flex w-full items-center gap-2" : ""}>
+          <Link href="/dispensing" aria-label="Dispensia home" className="shrink-0">
+            <Mark size={open ? 26 : 24} />
+          </Link>
+          {open ? (
+            <OrgSwitcher current={organisation} branch={branch} />
+          ) : null}
+        </span>
       </div>
 
       <nav className="min-h-0 flex-1 overflow-y-auto px-2.5 py-3" aria-label="Primary">
