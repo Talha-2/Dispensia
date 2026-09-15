@@ -16,6 +16,7 @@ import {
 import { Dialog, Menu, Toast } from "@/components/overlays";
 import { InviteDialog } from "@/components/invite-dialog";
 import { OrganisationCard } from "@/components/organisation-card";
+import { DemoReset } from "@/components/demo-reset";
 import type { Branch, Member, Organisation, Role } from "@/data/organisation";
 import { SHORTCUTS } from "@/lib/shortcuts";
 
@@ -49,7 +50,7 @@ export function SettingsView({
   members: Member[];
   roles: Role[];
   catalogue: { label: string; value: string }[];
-  /** The shared showroom tenant is readable by everyone and writable by nobody. */
+  /** The demo tenant: writable like any other, but resettable to its seed. */
   isDemo?: boolean;
 }) {
   const [tab, setTab] = useState<Tab>("organisation");
@@ -102,7 +103,7 @@ export function SettingsView({
       <div className="min-w-0">
         {tab === "organisation" ? (
           <div className="grid items-start gap-4 xl:grid-cols-2">
-            <OrganisationCard organisation={organisation} canEdit={!isDemo} onSaved={setToast} />
+            <OrganisationCard organisation={organisation} onSaved={setToast} />
 
             <div className="grid gap-4">
               <Card title="Data behind this workspace">
@@ -111,14 +112,20 @@ export function SettingsView({
                 ))}
               </Card>
 
-              <div className="band" data-sev="conflict">
-                <p className="t-label">Backend</p>
-                <p className="t-prose mt-1" data-depth="2">
-                  No Supabase credentials are set, so sign-in is open, members and branches live in this
-                  session only, and nothing persists between reloads. Product facts are real either way;
-                  stock, batches, patients and register entries are demo data.
-                </p>
-              </div>
+              {isDemo ? (
+                <DemoReset onDone={setToast} />
+              ) : (
+                <div className="band" data-sev="ok">
+                  <p className="t-label" style={{ color: "var(--ink)" }}>
+                    Your organisation
+                  </p>
+                  <p className="t-prose mt-1" data-depth="2">
+                    Every record on this workspace is scoped to {organisation.name} by row-level security
+                    in the database — not by a filter in the application — so no other pharmacy can read
+                    or change it. Product facts come from the shared catalogue; everything else is yours.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         ) : null}

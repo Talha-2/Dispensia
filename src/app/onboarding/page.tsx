@@ -123,8 +123,8 @@ export default function OnboardingPage() {
       <Mark size={34} />
       <h1 className="t-display-lg mt-5">Set up your workspace</h1>
       <p className="t-prose mt-2 max-w-[60ch]" data-depth="1">
-        Join the pharmacy that invited you, or start a new one. Either way you can keep looking around
-        the demo first — nothing you do there touches real data.
+        Join the pharmacy that invited you, or start a new one. You can also look around the demo first —
+        it is a working pharmacy you can change, and it resets.
       </p>
 
       {/* Two doors, stated at the same weight. Most people arriving here were
@@ -205,7 +205,7 @@ export default function OnboardingPage() {
               {joining ? "Joining…" : "Join the organisation"}
             </button>
             <a href="/dashboard" className="act act-lg">
-              Keep looking around the demo
+              Look around the demo
             </a>
           </div>
         </form>
@@ -293,16 +293,16 @@ export default function OnboardingPage() {
             {busy ? "Creating…" : "Create organisation"}
           </button>
           <a href="/dashboard" className="act act-lg">
-            Keep looking around the demo
+            Look around the demo
           </a>
         </div>
           </form>
         </>
       )}
-
       <p className="t-sm mt-6" data-depth="1">
-        Until you create one, the workspace runs on the shared <strong>Demo Pharmacy</strong> — real
-        products, synthetic stock and patients. Nothing you do there touches a real organisation.
+        The demo runs on <strong>Demo Pharmacy</strong> — real products, synthetic stock and patients.
+        Sign in as its own account to edit it; anything added there can be reset from Settings, and none
+        of it touches a real organisation.
       </p>
     </main>
   );

@@ -32,18 +32,14 @@ const FIELDS: { key: FieldKey; label: string; mono?: boolean; hint?: string }[] 
  * The organisation's own record, editable in place.
  *
  * Everything here prints on a receipt or a register entry, so it has to be
- * correctable without a support ticket. The demo tenant is the one exception:
- * it is readable by every account, so letting one visitor rename it would
- * rename it for everybody — the database refuses the write, and the card says
- * so rather than offering a button that fails.
+ * correctable without a support ticket — in the demo tenant as much as in a
+ * real one, since a demo you cannot edit does not demonstrate much.
  */
 export function OrganisationCard({
   organisation,
-  canEdit,
   onSaved,
 }: {
   organisation: Organisation;
-  canEdit: boolean;
   onSaved: (message: string) => void;
 }) {
   const [editing, setEditing] = useState(false);
@@ -81,7 +77,6 @@ export function OrganisationCard({
     const { error: saveError, data } = await supabase
       .from("organizations")
       .update(patch)
-      .neq("is_demo", true)
       .select("id");
 
     setBusy(false);
@@ -123,18 +118,13 @@ export function OrganisationCard({
             </button>
           </>
         ) : (
-          <button type="button" className="act act-sm" onClick={start} disabled={!canEdit}>
+          <button type="button" className="act act-sm" onClick={start}>
             <Pencil size={14} strokeWidth={1.9} />
             Edit
           </button>
         )}
       </div>
 
-      {!canEdit ? (
-        <p className="t-xs px-4 pt-3" data-depth="1">
-          This is the shared demo organisation. Create one of your own to edit these details.
-        </p>
-      ) : null}
 
       {FIELDS.map((field) => (
         <div key={field.key} className="baseline flex flex-wrap items-baseline gap-x-3 px-4 py-2">

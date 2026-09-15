@@ -75,13 +75,20 @@ export async function Shell({
               {/* Which organisation this workspace is acting for. On the shared
                   demo it says so and offers the way out, because a pharmacist
                   must never be unsure whether what they are looking at is real. */}
-              {tenant.isDemo ? (
-                <a href="/onboarding" className="flex items-center gap-2" title="Create your organisation">
+              {tenant.needsOnboarding ? (
+                <a href="/onboarding" className="flex items-center gap-2" title="Set up your own pharmacy">
                   <span className="cell cell-watch-soft">DEMO</span>
                   <span className="t-sm" data-depth="2">
                     {tenant.organisation.name}
                   </span>
                 </a>
+              ) : tenant.isDemo ? (
+                <span className="flex items-center gap-2" title="Demo tenant — resettable from Settings">
+                  <span className="cell cell-watch-soft">DEMO</span>
+                  <span className="t-sm" data-depth="2">
+                    {tenant.organisation.name}
+                  </span>
+                </span>
               ) : (
                 <span className="t-sm" data-depth="2">
                   {tenant.organisation.name}
