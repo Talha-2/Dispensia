@@ -46,11 +46,12 @@ type BranchRow = {
   licence: string | null;
   hours: string | null;
   is_primary: boolean | null;
+  closed_at: string | null;
 };
 
 const ORG_FIELDS =
   "id, name, legal_name, ntn, drap_licence, address, phone, email, currency, tax_note, is_demo";
-const BRANCH_FIELDS = "id, name, city, address, phone, licence, hours, is_primary";
+const BRANCH_FIELDS = "id, name, city, address, phone, licence, hours, is_primary, closed_at";
 
 const toOrganisation = (row: OrgRow): Organisation => ({
   name: row.name,
@@ -75,6 +76,7 @@ const toBranch = (row: BranchRow): Branch => ({
   hours: row.hours ?? "—",
   isPrimary: Boolean(row.is_primary),
   staff: 0,
+  closed: Boolean(row.closed_at),
 });
 
 const demoTenant = (extra: Partial<Tenant> = {}): Tenant => ({
@@ -156,8 +158,9 @@ export async function getTenant(): Promise<Tenant> {
   }
 
   const list = (rows ?? []).map(toBranch);
+  const open = list.filter((branch) => !branch.closed);
   const current =
-    list.find((branch) => branch.id === profile.branch_id) ?? list[0] ?? demoBranches[0];
+    open.find((branch) => branch.id === profile.branch_id) ?? open[0] ?? list[0] ?? demoBranches[0];
 
   return {
     organisation: toOrganisation(org as OrgRow),

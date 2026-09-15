@@ -182,7 +182,11 @@ export function BranchSwitcher({
     window.setTimeout(endRouteProgress, 900);
   }
 
-  if (branches.length < 2) {
+  // A closed site takes no deliveries and dispenses nothing, so it is not
+  // somewhere you can switch to.
+  const open = branches.filter((branch) => !branch.closed);
+
+  if (open.length < 2) {
     return (
       <span className="t-sm flex items-center gap-1.5" data-depth="1">
         <MapPin size={13} strokeWidth={1.8} style={{ color: "var(--ink-4)" }} />
@@ -204,7 +208,7 @@ export function BranchSwitcher({
       }
       items={[
         { label: "Branches", heading: true },
-        ...branches.map((branch) => ({
+        ...open.map((branch) => ({
           label: branch.name,
           onSelect: () => switchTo(branch.id),
           disabled: branch.id === current.id,

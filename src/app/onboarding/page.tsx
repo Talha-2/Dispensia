@@ -40,6 +40,26 @@ export default function OnboardingPage() {
   const [joinLink, setJoinLink] = useState("");
   const [joinError, setJoinError] = useState("");
   const [joining, setJoining] = useState(false);
+  const [openingDemo, setOpeningDemo] = useState(false);
+
+  async function openDemo() {
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase || openingDemo) return;
+
+    setOpeningDemo(true);
+    const { error: joinError } = await supabase.rpc("join_demo");
+    if (joinError) {
+      setOpeningDemo(false);
+      setError(joinError.message);
+      return;
+    }
+
+    // Fill it on the way in, so it opens as a working pharmacy rather than
+    // an empty one wearing the demo's name.
+    await fetch("/api/demo/seed", { method: "POST" }).catch(() => undefined);
+    router.push("/dispensing");
+    router.refresh();
+  }
 
   async function join(event: FormEvent) {
     event.preventDefault();
@@ -197,9 +217,9 @@ export default function OnboardingPage() {
               <LogIn size={16} strokeWidth={1.8} />
               {joining ? "Joining…" : "Join the organisation"}
             </button>
-            <a href="/dispensing" className="act act-lg">
-              Look around the demo
-            </a>
+            <button type="button" className="act act-lg" onClick={openDemo} disabled={openingDemo}>
+              {openingDemo ? "Opening the demo…" : "Look around the demo"}
+            </button>
           </div>
         </form>
       ) : (
@@ -285,17 +305,17 @@ export default function OnboardingPage() {
             <Building2 size={16} strokeWidth={1.8} />
             {busy ? "Creating…" : "Create organisation"}
           </button>
-          <a href="/dispensing" className="act act-lg">
-            Look around the demo
-          </a>
+          <button type="button" className="act act-lg" onClick={openDemo} disabled={openingDemo}>
+            {openingDemo ? "Opening the demo…" : "Look around the demo"}
+          </button>
         </div>
           </form>
         </>
       )}
       <p className="t-sm mt-6" data-depth="1">
-        The demo runs on <strong>Demo Pharmacy</strong> — real products, synthetic stock and patients.
-        Sign in as its own account to edit it; anything added there can be reset from Settings, and none
-        of it touches a real organisation.
+        The demo is a real pharmacy you join — <strong>Demo Pharmacy</strong>, with stock on three
+        branches, patients and a controlled-drug register. Everything in it can be changed, and Settings
+        resets it. You can leave it and register your own at any time.
       </p>
     </main>
   );

@@ -33,6 +33,8 @@ export type Branch = {
   hours: string;
   isPrimary: boolean;
   staff: number;
+  /** A closed site: kept for its register history, but not somewhere you stand. */
+  closed?: boolean;
 };
 
 export type Member = {

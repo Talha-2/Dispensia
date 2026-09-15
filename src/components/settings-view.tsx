@@ -68,6 +68,7 @@ export function SettingsView({
   const router = useRouter();
   const [toast, setToast] = useState<string | null>(null);
   const [roleFor, setRoleFor] = useState<Member | null>(null);
+  const [editBranch, setEditBranch] = useState<Branch | null>(null);
 
   /**
    * Every member action is the same write: patch one staff_profiles row.
@@ -229,6 +230,7 @@ export function SettingsView({
                       {branch.name}
                     </span>
                     {branch.isPrimary ? <span className="cell cell-primary-soft">Primary</span> : null}
+                    {branch.closed ? <span className="cell cell-quiet">Closed</span> : null}
                   </span>
                   <span className="t-sm mt-0.5 block" data-depth="1">
                     {branch.address}
@@ -250,10 +252,48 @@ export function SettingsView({
                   buttonClass="act act-quiet act-sm act-icon shrink-0"
                   trigger={<MoreHorizontal size={16} strokeWidth={1.9} />}
                   items={[
-                    { label: "Edit branch", onSelect: () => setToast(`Editing ${branch.name} needs the backend connected.`) },
-                    { label: "Switch to this branch", onSelect: () => setToast(`Switched to ${branch.name}.`), disabled: branch.isPrimary },
+                    { label: "Edit branch", onSelect: () => setEditBranch(branch) },
+                    {
+                      label: "Switch to this branch",
+                      disabled: branch.closed,
+                      onSelect: async () => {
+                        const supabase = getSupabaseBrowserClient();
+                        if (!supabase) return;
+                        const { error } = await supabase.rpc("switch_branch", { target: branch.id });
+                        if (error) {
+                          setToast(error.message);
+                          return;
+                        }
+                        setToast(`Now working from ${branch.name}.`);
+                        router.refresh();
+                      },
+                    },
                     { separator: true },
-                    { label: "Close branch", disabled: branch.isPrimary, onSelect: () => setToast(`Closing a branch needs the backend connected.`) },
+                    {
+                      label: branch.closed ? "Reopen branch" : "Close branch",
+                      disabled: branch.isPrimary,
+                      onSelect: async () => {
+                        const supabase = getSupabaseBrowserClient();
+                        if (!supabase) return;
+
+                        // Closed, never deleted: the branch is on every
+                        // controlled-drug entry that site ever wrote.
+                        const { error } = await supabase.rpc("close_branch", {
+                          target: branch.id,
+                          reopen: Boolean(branch.closed),
+                        });
+                        if (error) {
+                          setToast(error.message);
+                          return;
+                        }
+                        setToast(
+                          branch.closed
+                            ? `${branch.name} is open again.`
+                            : `${branch.name} is closed. Its register history is kept; it takes no deliveries and dispenses nothing.`,
+                        );
+                        router.refresh();
+                      },
+                    },
                   ]}
                 />
               </div>
@@ -553,6 +593,16 @@ export function SettingsView({
         }}
       />
 
+      <EditBranchDialog
+        branch={editBranch}
+        onClose={() => setEditBranch(null)}
+        onSaved={(name) => {
+          setEditBranch(null);
+          setToast(`${name} updated.`);
+          router.refresh();
+        }}
+      />
+
       <BranchDialog
         open={branchOpen}
         onClose={() => setBranchOpen(false)}
@@ -760,6 +810,104 @@ function BranchDialog({
           </p>
         ) : null}
       </form>
+    </Dialog>
+  );
+}
+
+/* ═══ Editing a branch ═════════════════════════════════════════════════════
+   Its address and licence print on that site's receipts and register entries,
+   so they have to be correctable without a support ticket. */
+
+function EditBranchDialog({
+  branch,
+  onClose,
+  onSaved,
+}: {
+  branch: Branch | null;
+  onClose: () => void;
+  onSaved: (name: string) => void;
+}) {
+  const [draft, setDraft] = useState<Branch | null>(branch);
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  // Keyed by the branch it is editing, so opening a different row starts from
+  // that row rather than from whatever was typed into the last one.
+  if (branch?.id !== draft?.id) setDraft(branch);
+
+  async function save() {
+    if (!draft) return;
+    if (draft.name.trim().length < 2) return setError("Give the branch a name staff will recognise.");
+
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) return setError("Supabase is not configured, so this cannot be saved.");
+
+    setSaving(true);
+    const { data, error: saveError } = await supabase
+      .from("branches")
+      .update({
+        name: draft.name.trim(),
+        city: draft.city?.trim() || null,
+        address: draft.address?.trim() || null,
+        phone: draft.phone?.trim() || null,
+        licence: draft.licence?.trim() || null,
+        hours: draft.hours?.trim() || null,
+      })
+      .eq("id", draft.id)
+      .select("id");
+    setSaving(false);
+
+    if (saveError) return setError(saveError.message);
+    if (!data?.length) return setError("That change was refused — your role may not permit it.");
+
+    setError("");
+    onSaved(draft.name.trim());
+    return undefined;
+  }
+
+  const field = (label: string, key: "name" | "city" | "address" | "phone" | "licence" | "hours") => (
+    <label className="block">
+      <span className="t-label">{label}</span>
+      <input
+        value={draft?.[key] ?? ""}
+        onChange={(event) => setDraft((current) => (current ? { ...current, [key]: event.target.value } : current))}
+        className="field mt-1.5"
+      />
+    </label>
+  );
+
+  return (
+    <Dialog
+      open={Boolean(branch)}
+      onClose={onClose}
+      title={branch ? `Edit ${branch.name}` : "Edit branch"}
+      description="Printed on this site's receipts and register entries."
+      width={560}
+      footer={
+        <>
+          <button type="button" className="act" onClick={onClose} disabled={saving}>
+            Cancel
+          </button>
+          <button type="button" className="act act-primary" onClick={save} disabled={saving}>
+            {saving ? "Saving…" : "Save branch"}
+          </button>
+        </>
+      }
+    >
+      <div className="grid gap-4 sm:grid-cols-2">
+        <span className="sm:col-span-2">{field("Name", "name")}</span>
+        {field("City", "city")}
+        {field("Phone", "phone")}
+        <span className="sm:col-span-2">{field("Address", "address")}</span>
+        {field("DRAP licence", "licence")}
+        {field("Opening hours", "hours")}
+
+        {error ? (
+          <p className="band t-sm sm:col-span-2" data-sev="block" role="alert" style={{ color: "var(--danger)" }}>
+            {error}
+          </p>
+        ) : null}
+      </div>
     </Dialog>
   );
 }
