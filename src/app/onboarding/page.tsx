@@ -4,6 +4,7 @@ import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Building2, LogIn } from "lucide-react";
 import { Mark } from "@/components/mark";
+import { useUser } from "@clerk/nextjs";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 /**
@@ -19,6 +20,7 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
  */
 export default function OnboardingPage() {
   const router = useRouter();
+  const { user } = useUser();
 
   const [name, setName] = useState("");
   const [legalName, setLegalName] = useState("");
@@ -87,19 +89,10 @@ export default function OnboardingPage() {
 
     setBusy(true);
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      router.push("/login?next=/onboarding");
-      return;
-    }
-
     const { error: rpcError } = await supabase.rpc("create_organization", {
       org_name: name.trim(),
       branch_name: branch.trim() || "Main Branch",
-      full_name: (user.user_metadata?.full_name as string | undefined) ?? null,
+      full_name: user?.fullName ?? null,
       legal_name: legalName.trim() || null,
       ntn: ntn.trim() || null,
       drap_licence: licence.trim() || null,

@@ -1,65 +1,44 @@
-import { createServerClient } from "@supabase/ssr";
-import { NextResponse, type NextRequest } from "next/server";
+import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { NextResponse } from "next/server";
 
-const protectedRoutes = [
-  "/dashboard",
-  "/catalogue",
-  "/inventory",
-  "/dispensing",
-  "/patients",
-  "/safety",
-  "/register",
-  "/reports",
-  "/settings",
-  "/onboarding",
-];
+/**
+ * Everything behind the counter needs a signed-in person, because every
+ * dispense, override and register entry is recorded against one.
+ */
+const isProtected = createRouteMatcher([
+  "/dashboard(.*)",
+  "/catalogue(.*)",
+  "/inventory(.*)",
+  "/dispensing(.*)",
+  "/patients(.*)",
+  "/safety(.*)",
+  "/register(.*)",
+  "/reports(.*)",
+  "/settings(.*)",
+  "/onboarding(.*)",
+]);
 
-export async function middleware(request: NextRequest) {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+export default clerkMiddleware(async (auth, request) => {
+  if (!isProtected(request)) return NextResponse.next();
 
-  if (!url || !anonKey) {
-    return NextResponse.next();
-  }
+  const { userId } = await auth();
+  if (userId) return NextResponse.next();
 
-  let response = NextResponse.next({ request });
-  const supabase = createServerClient(url, anonKey, {
-    cookies: {
-      getAll() {
-        return request.cookies.getAll();
-      },
-      setAll(cookiesToSet) {
-        cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-        response = NextResponse.next({ request });
-        cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
-      },
-    },
-  });
-
-  const { data: { user } } = await supabase.auth.getUser();
-  const isProtectedRoute = protectedRoutes.some((route) => request.nextUrl.pathname.startsWith(route));
-
-  if (isProtectedRoute && !user) {
-    const loginUrl = request.nextUrl.clone();
-    loginUrl.pathname = "/login";
-    loginUrl.searchParams.set("next", request.nextUrl.pathname);
-    return NextResponse.redirect(loginUrl);
-  }
-
-  return response;
-}
+  // Send them to sign-in with the page they wanted, so they land back on it
+  // rather than on a default screen they did not ask for.
+  const url = request.nextUrl.clone();
+  url.pathname = "/sign-in";
+  url.search = "";
+  url.searchParams.set("redirect_url", request.nextUrl.pathname + request.nextUrl.search);
+  return NextResponse.redirect(url);
+});
 
 export const config = {
   matcher: [
-    "/dashboard/:path*",
-    "/catalogue/:path*",
-    "/inventory/:path*",
-    "/dispensing/:path*",
-    "/patients/:path*",
-    "/safety/:path*",
-    "/register/:path*",
-    "/reports/:path*",
-    "/settings/:path*",
-    "/onboarding/:path*",
+    // Everything except Next internals and static files, so Clerk can keep the
+    // session fresh on ordinary navigations too.
+    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
+    "/(api|trpc)(.*)",
+    "/__clerk/:path*",
   ],
 };

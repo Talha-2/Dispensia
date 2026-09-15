@@ -225,7 +225,7 @@ export function Rail({ counts }: { counts: RailCounts }) {
 
       <div className="flex shrink-0 items-center gap-1 border-t border-(--line) p-2">
         <Link
-          href="/login"
+          href="/sign-in"
           title="Sign out"
           className={`act act-quiet act-sm ${open ? "flex-1 justify-start" : "act-icon"}`}
         >

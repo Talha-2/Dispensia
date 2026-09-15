@@ -1,3 +1,5 @@
+import { ClerkProvider } from "@clerk/nextjs";
+import { shadcn } from "@clerk/ui/themes";
 import type { Metadata, Viewport } from "next";
 import { Geist_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
@@ -47,7 +49,11 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" data-scroll-behavior="smooth" className={`${sans.variable} ${mono.variable}`}>
       <body>
-        {/*
+        {/* Clerk renders against the shadcn theme, which reads the same tokens
+            the rest of this system does — so its forms are in this product's
+            colours rather than Clerk's defaults. */}
+        <ClerkProvider appearance={{ theme: shadcn }}>
+          {/*
           THESIS: The safety verdict is the product. A clinical workspace where the
           engine's judgement on the basket is the most prominent thing on screen, and
           everything else — catalogue, stock, price — is ordered beneath it. Refuses the
@@ -68,10 +74,11 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
           built and rejected. Seed b44fc97b.
           FINISH: unreviewed and undocumented is unfinished; this build ends with the finish
           review, the verdict, DESIGN.md, and every shipping raster carrying its provenance.
-        */}
-        <TenantProvider value={tenant}>{children}</TenantProvider>
-        {/* One toast host for the whole app — sonner owns the queue. */}
-        <Toaster position="bottom-right" closeButton richColors={false} />
+          */}
+          <TenantProvider value={tenant}>{children}</TenantProvider>
+          {/* One toast host for the whole app — sonner owns the queue. */}
+          <Toaster position="bottom-right" closeButton richColors={false} />
+        </ClerkProvider>
       </body>
     </html>
   );

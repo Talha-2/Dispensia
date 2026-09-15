@@ -115,14 +115,12 @@ export function SettingsView({
                 email={account.email}
                 role={account.role}
                 branch={account.branch}
-                onDone={setToast}
               />
             ) : (
               <div className="band" data-sev="conflict">
                 <p className="t-label">Not signed in</p>
                 <p className="t-prose mt-1" data-depth="2">
-                  This workspace is running without Supabase credentials, so there is no account to
-                  manage. Sign-in is open and nothing persists between reloads.
+                  No Clerk session on this request, so there is no account to manage.
                 </p>
               </div>
             )}
@@ -132,10 +130,9 @@ export function SettingsView({
                 Forgotten passwords
               </p>
               <p className="t-prose mt-1" data-depth="2">
-                Changing it here needs no email, because the session already proves who you are. The
-                emailed reset link at /forgot-password is the fallback for somebody who cannot sign in
-                at all — and it is the flow that breaks first, since it depends on mail being
-                deliverable.
+                Passwords, Google sign-in, two-factor and account recovery are handled by Clerk — open
+                &ldquo;Password and security&rdquo; to change any of them. Your role and branch live here, because
+                they decide what you may do at the counter, and Clerk does not know about either.
               </p>
             </div>
           </div>

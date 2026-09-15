@@ -1,5 +1,6 @@
 import "server-only";
 
+import { auth, currentUser } from "@clerk/nextjs/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import {
   branches as demoBranches,
@@ -14,9 +15,9 @@ export type Tenant = {
   currentBranch: Branch;
   /** The signed-in person's display name, for receipts and register entries. */
   signedInAs: string | null;
-  /** Their account address — what re-authentication and invitations key on. */
+  /** Their account address — what invitations are matched against. */
   signedInEmail: string | null;
-  /** True when the workspace is showing the shared showroom tenant. */
+  /** True when the workspace is showing the shared demo tenant. */
   isDemo: boolean;
   /** True when the account has no organisation yet and should be onboarded. */
   needsOnboarding: boolean;
@@ -90,34 +91,45 @@ const demoTenant = (extra: Partial<Tenant> = {}): Tenant => ({
 /**
  * The organisation this request is acting for.
  *
- * Without Supabase configured, or for an account that has not created an
- * organisation yet, this is the shared Demo tenant — the product is usable
- * immediately rather than presenting an empty shell. `needsOnboarding` says
- * which of the two it is, so the UI can offer to create a real one without
- * blocking the way in.
+ * Identity comes from Clerk; the organisation behind it comes from Postgres,
+ * read through a Clerk-signed token that the database validates itself. For an
+ * account with no organisation yet this is the shared Demo tenant, so the
+ * product is usable immediately rather than presenting an empty shell —
+ * `needsOnboarding` says which of the two it is.
  */
 export async function getTenant(): Promise<Tenant> {
+  const { userId, sessionClaims } = await auth();
+  if (!userId) return demoTenant();
+
+  // The session token carries these when the instance's token template adds
+  // them. Falling back to the Clerk API keeps the header honest if it does not,
+  // though the database still needs the claim for invitations to match.
+  const claims = sessionClaims as { email?: string; name?: string } | null;
+  let email = claims?.email ?? null;
+  let name = claims?.name ?? null;
+
+  if (!email || !name) {
+    const user = await currentUser().catch(() => null);
+    email = email ?? user?.primaryEmailAddress?.emailAddress ?? null;
+    name =
+      name ??
+      [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim() ??
+      null;
+  }
+
+  const displayName = name?.trim() || email || null;
+
   const supabase = await getSupabaseServerClient();
-  if (!supabase) return demoTenant();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return demoTenant();
-
-  const displayName =
-    (user.user_metadata?.full_name as string | undefined)?.trim() || user.email || null;
+  if (!supabase) return demoTenant({ signedInAs: displayName, signedInEmail: email });
 
   const { data: profile } = await supabase
     .from("staff_profiles")
     .select("organization_id, branch_id, full_name")
-    .eq("id", user.id)
+    .eq("id", userId)
     .maybeSingle();
 
-  // Signed in, but not a member of anything yet: show the demo and offer to
-  // create a real organisation.
   if (!profile?.organization_id) {
-    return demoTenant({ signedInAs: displayName, signedInEmail: user.email ?? null, needsOnboarding: true });
+    return demoTenant({ signedInAs: displayName, signedInEmail: email, needsOnboarding: true });
   }
 
   const [{ data: org }, { data: rows }] = await Promise.all([
@@ -130,7 +142,9 @@ export async function getTenant(): Promise<Tenant> {
       .order("name"),
   ]);
 
-  if (!org) return demoTenant({ signedInAs: displayName, signedInEmail: user.email ?? null, needsOnboarding: true });
+  if (!org) {
+    return demoTenant({ signedInAs: displayName, signedInEmail: email, needsOnboarding: true });
+  }
 
   const list = (rows ?? []).map(toBranch);
   const current =
@@ -141,7 +155,7 @@ export async function getTenant(): Promise<Tenant> {
     branches: list.length ? list : demoBranches,
     currentBranch: current,
     signedInAs: profile.full_name?.trim() || displayName,
-    signedInEmail: user.email ?? null,
+    signedInEmail: email,
     isDemo: Boolean((org as OrgRow).is_demo),
     needsOnboarding: false,
   };
