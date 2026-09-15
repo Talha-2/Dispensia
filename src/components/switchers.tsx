@@ -70,11 +70,17 @@ export function OrgSwitcher({
     if (!supabase || busy) return;
     setBusy(true);
     const { error } = await supabase.rpc("join_demo");
-    setBusy(false);
-    if (!error) {
-      router.push("/dispensing");
-      router.refresh();
+    if (error) {
+      setBusy(false);
+      return;
     }
+
+    // Fill it on the way in. A demo with no stock and no patients demonstrates
+    // nothing, and the seed is idempotent, so a second visitor costs nothing.
+    await fetch("/api/demo/seed", { method: "POST" }).catch(() => undefined);
+    setBusy(false);
+    router.push("/dispensing");
+    router.refresh();
   }
 
   const inDemo = orgs?.some((org) => org.is_demo && org.is_active) ?? false;

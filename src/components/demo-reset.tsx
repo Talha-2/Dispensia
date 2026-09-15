@@ -32,16 +32,27 @@ export function DemoReset({ onDone }: { onDone: (message: string) => void }) {
     setBusy(true);
     setError("");
 
-    const { data, error: rpcError } = await supabase.rpc("reset_demo_organization");
-    setBusy(false);
+    const { error: rpcError } = await supabase.rpc("reset_demo_organization");
 
     if (rpcError) {
+      setBusy(false);
       setError(rpcError.message);
       return;
     }
 
+    // Reset empties it; seeding puts the demonstration data back. A demo with
+    // no stock and no patients demonstrates nothing.
+    const seeded = await fetch("/api/demo/seed", { method: "POST" });
+    const data = await seeded.json();
+    setBusy(false);
+
+    if (!seeded.ok) {
+      setError(data.error ?? "The demo was cleared but could not be refilled.");
+      return;
+    }
+
     setOpen(false);
-    onDone(typeof data === "string" ? data : "Demo reset to its seeded state.");
+    onDone(`Demo reset — ${data.stock} stock lines, ${data.patients} patients and ${data.register} register entries restored.`);
     // The whole page is built from the tenant, so it is re-read rather than
     // patched in half a dozen places.
     window.location.reload();
@@ -57,8 +68,8 @@ export function DemoReset({ onDone }: { onDone: (message: string) => void }) {
             </p>
             <p className="t-prose mt-1 max-w-[60ch]" data-depth="2">
               This tenant is fully writable — add branches, invite staff, edit these details, dispense
-              against it. Resetting removes everything added since the seed and puts the original
-              organisation and its three branches back.
+              against it. Resetting removes everything added since the seed and puts the original organisation,
+              its three branches and the demonstration stock, patients and register back.
             </p>
           </span>
           <button type="button" className="act act-sm shrink-0" onClick={() => setOpen(true)}>

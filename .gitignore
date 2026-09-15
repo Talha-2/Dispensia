@@ -52,3 +52,6 @@ next-env.d.ts
 
 # supabase CLI scratch
 supabase/.temp/
+
+.vercel
+.env*

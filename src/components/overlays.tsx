@@ -17,6 +17,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuGroup,
   DropdownMenuSeparator,
   DropdownMenuShortcut,
   DropdownMenuTrigger,
@@ -117,7 +118,14 @@ export function Menu({
       <DropdownMenuContent align={align} className="min-w-[236px]">
         {items.map((item, index) => {
           if ("separator" in item) return <DropdownMenuSeparator key={index} />;
-          if ("heading" in item) return <DropdownMenuLabel key={index}>{item.label}</DropdownMenuLabel>;
+          // Base UI requires a GroupLabel to sit inside a Group; on its own it
+          // throws MenuGroupContext is missing and takes the whole page with it.
+          if ("heading" in item)
+            return (
+              <DropdownMenuGroup key={index}>
+                <DropdownMenuLabel>{item.label}</DropdownMenuLabel>
+              </DropdownMenuGroup>
+            );
           return (
             <DropdownMenuItem key={index} disabled={item.disabled} onClick={item.onSelect}>
               {item.icon ? (

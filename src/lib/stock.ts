@@ -75,9 +75,14 @@ export async function getStock(): Promise<{ lines: StockLine[]; summary: StockSu
   const supabase = await getSupabaseServerClient();
   if (!supabase) return empty;
 
+  // The branch you are standing in, not the whole company. A three-branch
+  // pharmacy has three shelves, and a balance that mixes them is not a balance.
+  const { data: branch } = await supabase.rpc("current_branch_id");
+
   const { data, error } = await supabase
     .from("stock_lines")
     .select("id, branch_id, catalogue_id, on_hand, reorder, batch, expiry, shelf, cost, price, counted_at")
+    .eq("branch_id", branch ?? "00000000-0000-0000-0000-000000000000")
     .order("on_hand", { ascending: false });
 
   if (error || !data?.length) return empty;

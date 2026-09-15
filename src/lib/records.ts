@@ -67,11 +67,16 @@ export async function getRegister(): Promise<RegisterEntryRow[]> {
   const supabase = await getSupabaseServerClient();
   if (!supabase) return [];
 
+  // A controlled-drug register is kept per registered site: each branch has its
+  // own DRAP licence, and an inspector asks that site for that site's book.
+  const { data: branch } = await supabase.rpc("current_branch_id");
+
   const { data, error } = await supabase
     .from("register_entries")
     .select(
       "id, catalogue_id, brand, strength, molecule, patient_name, mrn, quantity, balance_after, pharmacist, override_reason, entered_at",
     )
+    .eq("branch_id", branch ?? "00000000-0000-0000-0000-000000000000")
     .order("entered_at", { ascending: false })
     .limit(500);
 

@@ -122,11 +122,20 @@ export async function getTenant(): Promise<Tenant> {
   const supabase = await getSupabaseServerClient();
   if (!supabase) return demoTenant({ signedInAs: displayName, signedInEmail: email });
 
-  const { data: profile } = await supabase
+  // Which pharmacy this person is acting for. Since an account can belong to
+  // more than one, the id alone no longer identifies a membership — asking for
+  // a single row by user returned an error the moment somebody joined a second
+  // organisation, and dropped them silently onto the demo.
+  const { data: activeOrg } = await supabase.rpc("current_organization_id");
+
+  const { data: profiles } = await supabase
     .from("staff_profiles")
     .select("organization_id, branch_id, full_name")
     .eq("id", userId)
-    .maybeSingle();
+    .eq("organization_id", activeOrg ?? "00000000-0000-0000-0000-000000000000")
+    .limit(1);
+
+  const profile = profiles?.[0] ?? null;
 
   if (!profile?.organization_id) {
     return demoTenant({ signedInAs: displayName, signedInEmail: email, needsOnboarding: true });
