@@ -6,6 +6,7 @@ import { Identity, Markers, SEVERITY_LABEL, SeverityMark, pkr } from "@/componen
 import { Receipt, makeReference, type Sale } from "@/components/receipt";
 import { Dialog, Toast } from "@/components/overlays";
 import { COMMANDS, MOD_LABEL, useCommand } from "@/lib/commands";
+import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import type { Finding, Medicine, Patient, ScanResult, Verdict } from "@/lib/types";
 
 const PHARMACIST_PIN = "5566";
@@ -215,7 +216,7 @@ export function Counter({
   /* ── Checkout ────────────────────────────────────────────────────────────
      Closing a basket writes the sale, produces the bill, and clears the bench
      so the next customer starts clean. A blocked basket cannot get here. */
-  const checkout = useCallback(() => {
+  const checkout = useCallback(async () => {
     if (!lines.length) return;
     if (blocked) {
       setToast("This basket is blocked. Resolve or override the finding before dispensing.");
@@ -227,6 +228,52 @@ export function Counter({
       setToast(`Cash tendered is short by PKR ${(total - paid).toFixed(2)}.`);
       return;
     }
+    // Take the stock down and write the statutory entries in one
+    // transaction. A register that disagrees with the shelf is worse than
+    // either being missing: it is a document that says something untrue
+    // about a controlled drug.
+    const supabase = getSupabaseBrowserClient();
+    if (supabase) {
+      const { data, error } = await supabase.rpc("dispense_basket", {
+        p_lines: lines.map((line) => ({
+          catalogue_id: line.medicine.id,
+          qty: line.qty,
+          brand: line.medicine.short,
+          strength: line.medicine.strength ?? null,
+          molecule: line.medicine.molecule,
+          controlled: line.medicine.flags.includes("controlled"),
+        })),
+        p_patient: patient?.id ?? null,
+        p_patient_name: patient?.name ?? "Walk-in",
+        p_mrn: patient?.mrn ?? null,
+        p_overrides: cleared.length
+          ? cleared.map((key) => `${key}: ${overrides[key] ?? ""}`).join(" · ")
+          : null,
+      });
+
+      if (error) {
+        setToast(`Nothing was recorded — ${error.message}`);
+        return;
+      }
+
+      const result = data as {
+        register_entries: number;
+        lines_not_in_stock: number;
+      } | null;
+
+      if (result?.lines_not_in_stock) {
+        // Said out loud rather than swallowed: the shelf record is now known
+        // to be behind, and only a person can reconcile that.
+        setToast(
+          `${result.lines_not_in_stock} line${result.lines_not_in_stock === 1 ? " was" : "s were"} dispensed without a matching stock record. Receive them on the Stock screen.`,
+        );
+      } else if (result?.register_entries) {
+        setToast(
+          `${result.register_entries} controlled ${result.register_entries === 1 ? "entry" : "entries"} written to the register.`,
+        );
+      }
+    }
+
     const now = new Date();
     setSale({
       reference: makeReference(),

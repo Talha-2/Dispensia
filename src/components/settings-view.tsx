@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Building2,
   CheckCircle2,
@@ -64,6 +65,7 @@ export function SettingsView({
   const [members, setMembers] = useState(seedMembers);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [branchOpen, setBranchOpen] = useState(false);
+  const router = useRouter();
   const [toast, setToast] = useState<string | null>(null);
   const [roleFor, setRoleFor] = useState<Member | null>(null);
 
@@ -556,7 +558,8 @@ export function SettingsView({
         onClose={() => setBranchOpen(false)}
         onDone={(name) => {
           setBranchOpen(false);
-          setToast(`${name} needs the backend connected before it can be created.`);
+          setToast(`${name} created. Staff can be moved to it from Members.`);
+          router.refresh();
         }}
       />
 
@@ -665,6 +668,7 @@ function BranchDialog({
   onClose: () => void;
   onDone: (name: string) => void;
 }) {
+  const [saving, setSaving] = useState(false);
   const [name, setName] = useState("");
   const [city, setCity] = useState("Lahore");
   const [address, setAddress] = useState("");
@@ -672,17 +676,41 @@ function BranchDialog({
   const [licence, setLicence] = useState("");
   const [error, setError] = useState("");
 
-  function submit(event: React.FormEvent) {
+  async function submit(event: React.FormEvent) {
     event.preventDefault();
     if (name.trim().length < 2) return setError("Give the branch a name staff will recognise.");
     if (!address.trim()) return setError("A branch needs an address — it is printed on its receipts.");
     if (!licence.trim()) return setError("A DRAP retail licence number is required to dispense from a site.");
+
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) return setError("Supabase is not configured, so branches cannot be created.");
+
+    setSaving(true);
+
+    // The organisation is read from the session rather than passed in, so a
+    // branch can only ever be opened inside the pharmacy you are acting for.
+    const { data: org } = await supabase.rpc("current_organization_id");
+
+    const { error: saveError } = await supabase.from("branches").insert({
+      organization_id: org,
+      name: name.trim(),
+      city: city.trim() || null,
+      address: address.trim(),
+      phone: phone.trim() || null,
+      licence: licence.trim(),
+      is_primary: false,
+    });
+
+    setSaving(false);
+    if (saveError) return setError(saveError.message);
+
     onDone(name.trim());
     setName("");
     setAddress("");
     setPhone("");
     setLicence("");
     setError("");
+    return undefined;
   }
 
   return (
@@ -697,9 +725,9 @@ function BranchDialog({
           <button type="button" className="act" onClick={onClose}>
             Cancel
           </button>
-          <button type="submit" form="add-branch" className="act act-primary">
+          <button type="submit" form="add-branch" className="act act-primary" disabled={saving}>
             <Plus size={15} strokeWidth={2} />
-            Create branch
+            {saving ? "Creating…" : "Create branch"}
           </button>
         </>
       }

@@ -53,15 +53,27 @@ function marginOf(medicine: Medicine) {
   return ((medicine.price - medicine.cost) / medicine.price) * 100;
 }
 
-const COLUMNS: { key: string; label: string; sort?: Sort; width: string; align?: "right" }[] = [
+const COLUMNS: {
+  key: string;
+  label: string;
+  sort?: Sort;
+  width: string;
+  align?: "right";
+  /** Hover note, for the columns whose meaning is not obvious from the word. */
+  hint?: string;
+}[] = [
   { key: "brand", label: "Product", sort: "brand", width: "minmax(160px,1.5fr)" },
   { key: "molecule", label: "Molecule", width: "minmax(100px,1fr)" },
   { key: "form", label: "Form", width: "58px" },
   { key: "maker", label: "Manufacturer", sort: "maker", width: "minmax(100px,1fr)" },
   { key: "markers", label: "Class", width: "78px" },
   { key: "pack", label: "Pack", width: "38px", align: "right" },
-  { key: "price", label: "Retail", sort: "price", width: "64px", align: "right" },
-  { key: "margin", label: "Margin", sort: "margin", width: "46px", align: "right" },
+  // MRP is set nationally by DRAP, so it is a catalogue fact like the molecule.
+  // Trade price is published too, but what a pharmacy actually pays varies by
+  // distributor and bonus — so the margin here is indicative, and a stock line
+  // overrides both with what this pharmacy really paid and charges.
+  { key: "price", label: "MRP", sort: "price", width: "64px", align: "right", hint: "Maximum retail price, set nationally" },
+  { key: "margin", label: "Margin", sort: "margin", width: "46px", align: "right", hint: "Indicative, at published trade price. Your real margin is on the stock line." },
   // No stock columns. What a pharmacy holds is its own record, on its own
   // screen; the number that used to sit here came from the catalogue file and
   // was the same for everybody, which made it worse than absent.
@@ -1051,6 +1063,7 @@ function TableView({
                   : undefined
               }
               className={column.align === "right" ? "text-right" : ""}
+              title={column.hint}
             >
               {column.sort ? (
                 <button
